@@ -113,10 +113,8 @@ Run it on your phone during development with **Expo Go**. Every native module th
 Expo Go.
 
 ```sh
-cd mobile
-npm install
-npx expo start          # scan the QR code with Expo Go (Android) or the Camera app (iPhone)
-npx tsc --noEmit        # typecheck
+npm --prefix mobile install
+npm run mobile:start    # scan the QR code with Expo Go (Android) or the Camera app (iPhone)
 ```
 
 Builds:
@@ -184,6 +182,9 @@ To change the schema, edit `server/prisma/schema.prisma` and run `npm --prefix s
 | `npm test` | Web unit tests (money and GST maths) |
 | `npm run test:server` | API integration tests against `inventrack_test` (a real Postgres database) |
 | `npm run typecheck`, `npm run lint` | Static checks |
+| `npm run db:generate` | Regenerate the Prisma client after changing `server/prisma/schema.prisma` |
+| `npm run mobile:start` | Start the phone app's Expo dev server (scan the QR code with Expo Go) |
+| `npm run desktop:start` | Build the web app and open it in the desktop app |
 | `npm run build` | Production build of the web app to `dist/` |
 
 API tests need an empty database whose name ends in `_test` (default

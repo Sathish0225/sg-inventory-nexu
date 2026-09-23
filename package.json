@@ -15,10 +15,12 @@
     "dev:server": "npm --prefix server run dev",
     "test:server": "npm --prefix server test",
     "db:migrate": "npm --prefix server run db:deploy",
+    "db:generate": "npm --prefix server run db:generate",
     "db:seed": "npm --prefix server run db:seed",
     "start": "npm --prefix server start",
     "desktop:start": "npm run build && npm --prefix desktop start",
-    "desktop:dist": "npm run build && npm --prefix desktop run dist"
+    "desktop:dist": "npm run build && npm --prefix desktop run dist",
+    "mobile:start": "npm --prefix mobile start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
