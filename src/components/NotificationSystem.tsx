@@ -1,209 +1,130 @@
-
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, Bell, CalendarClock, FileSpreadsheet, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Bell, X, AlertTriangle, Info, CheckCircle, Clock } from "lucide-react";
-import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { addDays, balanceDue, formatDate, formatSGD, invoiceDisplayStatus, stockStatus, todayISO } from "@/lib/calc";
+import { selectCustomerName, useStore } from "@/store/useStore";
 
-interface Notification {
+interface Alert {
   id: string;
-  type: "info" | "warning" | "success" | "error";
+  icon: typeof Bell;
+  tone: string;
   title: string;
   message: string;
-  timestamp: Date;
-  read: boolean;
+  to: string;
 }
 
-const NotificationSystem = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      type: "warning",
-      title: "Low Stock Alert",
-      message: "LED Bulb 12W stock is running low (15 remaining, minimum: 25)",
-      timestamp: new Date(Date.now() - 10 * 60 * 1000),
-      read: false
-    },
-    {
-      id: "2",
-      type: "info",
-      title: "Service Scheduled",
-      message: "New service job scheduled for Marina Bay Sands - Tower 1",
-      timestamp: new Date(Date.now() - 30 * 60 * 1000),
-      read: false
-    },
-    {
-      id: "3",
-      type: "success",
-      title: "Service Completed",
-      message: "HVAC maintenance completed at Raffles Hotel Singapore",
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      read: true
-    }
-  ]);
+/**
+ * Alerts derived from live data, so they clear themselves once the underlying issue is fixed
+ * (stock replenished, invoice paid, quotation decided).
+ */
+const useAlerts = (): Alert[] => {
+  const inventory = useStore((s) => s.inventory);
+  const invoices = useStore((s) => s.invoices);
+  const quotations = useStore((s) => s.quotations);
+  const jobs = useStore((s) => s.jobs);
+  const customers = useStore((s) => s.customers);
 
-  const [showPanel, setShowPanel] = useState(false);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-    toast.success("Notification deleted");
-  };
-
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "warning": return <AlertTriangle className="h-4 w-4 text-orange-500" />;
-      case "error": return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case "success": return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "info": return <Info className="h-4 w-4 text-blue-500" />;
-      default: return <Info className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const formatTime = (timestamp: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - timestamp.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(minutes / 60);
-    
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return timestamp.toLocaleDateString('en-SG');
-  };
-
-  // Simulate new notifications
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomNotifications = [
-        {
-          type: "warning" as const,
-          title: "Stock Alert",
-          message: "Network Cable CAT6 stock is getting low"
-        },
-        {
-          type: "info" as const,
-          title: "New Service Request",
-          message: "Emergency repair requested at Changi Airport"
-        },
-        {
-          type: "success" as const,
-          title: "Inventory Updated",
-          message: "New stock items have been added to warehouse"
-        }
-      ];
-
-      if (Math.random() > 0.8) { // 20% chance every interval
-        const randomNotif = randomNotifications[Math.floor(Math.random() * randomNotifications.length)];
-        const newNotification: Notification = {
-          id: Date.now().toString(),
-          ...randomNotif,
-          timestamp: new Date(),
-          read: false
-        };
-
-        setNotifications(prev => [newNotification, ...prev]);
-        toast(randomNotif.title, {
-          description: randomNotif.message,
+  return useMemo(() => {
+    const today = todayISO();
+    const alerts: Alert[] = [];
+    for (const inv of invoices) {
+      if (invoiceDisplayStatus(inv, today) === "Overdue") {
+        alerts.push({
+          id: `inv-${inv.id}`,
+          icon: AlertTriangle,
+          tone: "text-red-600 dark:text-red-400",
+          title: `${inv.number} is overdue`,
+          message: `${selectCustomerName(customers, inv.customerId)} · ${formatSGD(balanceDue(inv))} due ${formatDate(inv.dueDate)}`,
+          to: "/invoices",
         });
       }
-    }, 30000); // Check every 30 seconds
+    }
+    for (const item of inventory) {
+      const status = stockStatus(item);
+      if (status === "Low Stock" || status === "Out of Stock") {
+        alerts.push({
+          id: `stock-${item.id}`,
+          icon: Package,
+          tone: "text-amber-600 dark:text-amber-400",
+          title: `${item.name}: ${status.toLowerCase()}`,
+          message: `${item.currentStock} left, reorder level ${item.minStock}`,
+          to: "/inventory",
+        });
+      }
+    }
+    for (const q of quotations) {
+      if (q.status === "Sent" && q.validUntil >= today && q.validUntil <= addDays(today, 3)) {
+        alerts.push({
+          id: `qt-${q.id}`,
+          icon: FileSpreadsheet,
+          tone: "text-violet-600 dark:text-violet-400",
+          title: `${q.number} expires soon`,
+          message: `${selectCustomerName(customers, q.customerId)} · valid until ${formatDate(q.validUntil)}`,
+          to: "/quotations",
+        });
+      }
+    }
+    for (const j of jobs) {
+      if (j.status === "Scheduled" && j.dateScheduled === today) {
+        alerts.push({
+          id: `job-${j.id}`,
+          icon: CalendarClock,
+          tone: "text-blue-600 dark:text-blue-400",
+          title: `${j.jobNumber} today at ${j.timeScheduled}`,
+          message: `${j.customer} · ${j.technician}`,
+          to: "/service",
+        });
+      }
+    }
+    return alerts;
+  }, [inventory, invoices, quotations, jobs, customers]);
+};
 
-    return () => clearInterval(interval);
-  }, []);
+const NotificationSystem = () => {
+  const alerts = useAlerts();
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative">
-      <Button 
-        variant="outline" 
-        size="sm" 
-        className="relative"
-        onClick={() => setShowPanel(!showPanel)}
-      >
-        <Bell className="h-4 w-4" />
-        {unreadCount > 0 && (
-          <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-red-500">
-            {unreadCount}
-          </Badge>
-        )}
-      </Button>
-
-      {showPanel && (
-        <div className="absolute right-0 top-12 w-80 bg-white border rounded-lg shadow-lg z-50 max-h-96 overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center">
-            <h3 className="font-semibold">Notifications</h3>
-            <div className="flex space-x-2">
-              {unreadCount > 0 && (
-                <Button size="sm" variant="ghost" onClick={markAllAsRead}>
-                  Mark all read
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={() => setShowPanel(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                No notifications
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-3 border-b hover:bg-gray-50 cursor-pointer ${
-                    !notification.read ? 'bg-blue-50' : ''
-                  }`}
-                  onClick={() => markAsRead(notification.id)}
-                >
-                  <div className="flex items-start space-x-3">
-                    {getIcon(notification.type)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <p className="font-medium text-sm">{notification.title}</p>
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-500">
-                            {formatTime(notification.timestamp)}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNotification(notification.id);
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                      {!notification.read && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative" aria-label={`${alerts.length} alerts`}>
+          <Bell className="h-4 w-4" />
+          {alerts.length > 0 && (
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+              {alerts.length}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 p-0">
+        <div className="border-b px-4 py-3">
+          <p className="text-sm font-semibold">Alerts</p>
+          <p className="text-xs text-muted-foreground">Things that need attention right now</p>
         </div>
-      )}
-    </div>
+        <div className="max-h-96 overflow-y-auto">
+          {alerts.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">All clear.</p>
+          ) : (
+            alerts.map((a) => (
+              <Link
+                key={a.id}
+                to={a.to}
+                onClick={() => setOpen(false)}
+                className="flex gap-3 border-b px-4 py-3 last:border-0 hover:bg-muted"
+              >
+                <a.icon className={`mt-0.5 h-4 w-4 shrink-0 ${a.tone}`} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{a.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">{a.message}</p>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };
 

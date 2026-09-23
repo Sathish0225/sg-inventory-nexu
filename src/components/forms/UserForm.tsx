@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import type { AppUser } from "@/types";
 
 interface UserFormProps {
-  user?: any;
-  onSave: (data: any) => void;
+  user?: AppUser | null;
+  onSave: (data: Partial<AppUser>) => void;
   onCancel: () => void;
 }
 
@@ -83,7 +84,7 @@ const UserForm = ({ user, onSave, onCancel }: UserFormProps) => {
                   id="role"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-input rounded-md"
                   required
                 >
                   <option value="">Select Role</option>
@@ -100,7 +101,7 @@ const UserForm = ({ user, onSave, onCancel }: UserFormProps) => {
                   id="department"
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-input rounded-md"
                   required
                 >
                   <option value="">Select Department</option>
@@ -118,7 +119,7 @@ const UserForm = ({ user, onSave, onCancel }: UserFormProps) => {
                 id="status"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-input rounded-md"
                 required
               >
                 <option value="Active">Active</option>

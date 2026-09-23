@@ -77,14 +77,14 @@ const ReportsModule = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Reports & Analytics</h2>
-          <p className="text-gray-600">Comprehensive reporting for inventory and service operations</p>
+          <h2 className="text-2xl font-bold text-foreground">Reports & Analytics</h2>
+          <p className="text-muted-foreground">Comprehensive reporting for inventory and service operations</p>
         </div>
         <div className="flex space-x-2">
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md"
+            className="px-3 py-2 border border-input rounded-md"
           >
             <option value="week">This Week</option>
             <option value="month">This Month</option>
@@ -157,16 +157,16 @@ const ReportsModule = () => {
                   <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3">
-                        <div className="text-lg font-bold text-gray-400">#{index + 1}</div>
+                        <div className="text-lg font-bold text-muted-foreground">#{index + 1}</div>
                         <div>
                           <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-500">{item.category}</p>
+                          <p className="text-sm text-muted-foreground">{item.category}</p>
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">Qty: {item.quantity}</p>
-                      <p className="text-sm text-gray-500">S${item.value.toFixed(2)}</p>
+                      <p className="text-sm text-muted-foreground">S${item.value.toFixed(2)}</p>
                     </div>
                   </div>
                 ))}
@@ -213,7 +213,7 @@ const ReportsModule = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Total Jobs</p>
+                    <p className="text-sm text-muted-foreground">Total Jobs</p>
                     <p className="text-2xl font-bold">342</p>
                   </div>
                   <Wrench className="h-8 w-8 text-blue-600" />
@@ -228,7 +228,7 @@ const ReportsModule = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Avg Response Time</p>
+                    <p className="text-sm text-muted-foreground">Avg Response Time</p>
                     <p className="text-2xl font-bold">2.5h</p>
                   </div>
                   <Calendar className="h-8 w-8 text-green-600" />
@@ -243,7 +243,7 @@ const ReportsModule = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Completion Rate</p>
+                    <p className="text-sm text-muted-foreground">Completion Rate</p>
                     <p className="text-2xl font-bold">94.2%</p>
                   </div>
                   <TrendingUp className="h-8 w-8 text-purple-600" />
@@ -258,7 +258,7 @@ const ReportsModule = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Customer Satisfaction</p>
+                    <p className="text-sm text-muted-foreground">Customer Satisfaction</p>
                     <p className="text-2xl font-bold">4.8/5</p>
                   </div>
                   <div className="text-yellow-500 text-2xl">⭐</div>
@@ -310,7 +310,7 @@ const ReportsModule = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Total Revenue (YTD)</p>
+                    <p className="text-sm text-muted-foreground">Total Revenue (YTD)</p>
                     <p className="text-2xl font-bold">S$96,900</p>
                     <p className="text-sm text-green-600">+18.5% vs last year</p>
                   </div>
@@ -323,7 +323,7 @@ const ReportsModule = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">GST Collected (YTD)</p>
+                    <p className="text-sm text-muted-foreground">GST Collected (YTD)</p>
                     <p className="text-2xl font-bold">S$6,783</p>
                     <p className="text-sm text-blue-600">7% of revenue</p>
                   </div>
@@ -336,7 +336,7 @@ const ReportsModule = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Inventory Value</p>
+                    <p className="text-sm text-muted-foreground">Inventory Value</p>
                     <p className="text-2xl font-bold">S$245,680</p>
                     <p className="text-sm text-purple-600">Current stock value</p>
                   </div>
@@ -373,17 +373,17 @@ const ReportsModule = () => {
                       </div>
                       <div>
                         <p className="font-medium">{tech.name}</p>
-                        <p className="text-sm text-gray-500">Jobs completed: {tech.completed}</p>
+                        <p className="text-sm text-muted-foreground">Jobs completed: {tech.completed}</p>
                       </div>
                     </div>
                     
                     <div className="flex items-center space-x-6">
                       <div className="text-center">
-                        <p className="text-sm text-gray-600">Pending</p>
+                        <p className="text-sm text-muted-foreground">Pending</p>
                         <p className="font-medium">{tech.pending}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-gray-600">Efficiency</p>
+                        <p className="text-sm text-muted-foreground">Efficiency</p>
                         <div className="flex items-center space-x-2">
                           <div className="w-16 bg-gray-200 rounded-full h-2">
                             <div 

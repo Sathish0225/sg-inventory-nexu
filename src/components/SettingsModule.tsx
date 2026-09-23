@@ -17,17 +17,10 @@ import {
   Mail
 } from "lucide-react";
 import { toast } from "sonner";
+import CompanySettingsCard from "@/components/settings/CompanySettingsCard";
+import DataManagementCard from "@/components/settings/DataManagementCard";
 
 const SettingsModule = () => {
-  const [companySettings, setCompanySettings] = useState({
-    name: "Singapore Tech Solutions Pte Ltd",
-    address: "123 Marina Bay Drive, Singapore 018956",
-    phone: "+65 6123 4567",
-    email: "info@stechsolutions.com.sg",
-    gstNumber: "M12345678X",
-    logo: ""
-  });
-
   const [systemSettings, setSystemSettings] = useState({
     lowStockThreshold: 20,
     autoNotifications: true,
@@ -46,10 +39,6 @@ const SettingsModule = () => {
     twoFactorAuth: false
   });
 
-  const handleSaveCompany = () => {
-    toast.success("Company settings saved successfully");
-  };
-
   const handleSaveSystem = () => {
     toast.success("System settings saved successfully");
   };
@@ -58,26 +47,18 @@ const SettingsModule = () => {
     toast.success("User settings saved successfully");
   };
 
-  const handleExportData = () => {
-    toast.success("Data export initiated. You will receive an email when ready.");
-  };
-
-  const handleBackupData = () => {
-    toast.success("Manual backup initiated successfully");
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">System Settings</h2>
-          <p className="text-gray-600">Configure system preferences and company information</p>
+          <h2 className="text-2xl font-bold text-foreground">System Settings</h2>
+          <p className="text-muted-foreground">Configure system preferences and company information</p>
         </div>
       </div>
 
       <Tabs defaultValue="company" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start">
           <TabsTrigger value="company" className="flex items-center space-x-2">
             <Building className="h-4 w-4" />
             <span>Company</span>
@@ -105,77 +86,7 @@ const SettingsModule = () => {
         </TabsList>
 
         <TabsContent value="company" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Company Information</CardTitle>
-              <CardDescription>Update your company details and branding</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="companyName">Company Name</Label>
-                  <Input
-                    id="companyName"
-                    value={companySettings.name}
-                    onChange={(e) => setCompanySettings({...companySettings, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="gstNumber">GST Registration Number</Label>
-                  <Input
-                    id="gstNumber"
-                    value={companySettings.gstNumber}
-                    onChange={(e) => setCompanySettings({...companySettings, gstNumber: e.target.value})}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={companySettings.address}
-                  onChange={(e) => setCompanySettings({...companySettings, address: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={companySettings.phone}
-                    onChange={(e) => setCompanySettings({...companySettings, phone: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={companySettings.email}
-                    onChange={(e) => setCompanySettings({...companySettings, email: e.target.value})}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="logo">Company Logo</Label>
-                <Input
-                  id="logo"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      toast.success("Logo uploaded successfully");
-                    }
-                  }}
-                />
-              </div>
-              
-              <Button onClick={handleSaveCompany}>Save Company Settings</Button>
-            </CardContent>
-          </Card>
+          <CompanySettingsCard />
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6">
@@ -201,7 +112,7 @@ const SettingsModule = () => {
                     id="timezone"
                     value={systemSettings.timezone}
                     onChange={(e) => setSystemSettings({...systemSettings, timezone: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-input rounded-md"
                   >
                     <option value="Asia/Singapore">Asia/Singapore (GMT+8)</option>
                     <option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur (GMT+8)</option>
@@ -217,7 +128,7 @@ const SettingsModule = () => {
                     id="dateFormat"
                     value={systemSettings.dateFormat}
                     onChange={(e) => setSystemSettings({...systemSettings, dateFormat: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-input rounded-md"
                   >
                     <option value="DD/MM/YYYY">DD/MM/YYYY (Singapore)</option>
                     <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
@@ -230,7 +141,7 @@ const SettingsModule = () => {
                     id="currency"
                     value={systemSettings.currency}
                     onChange={(e) => setSystemSettings({...systemSettings, currency: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-input rounded-md"
                   >
                     <option value="SGD">Singapore Dollar (SGD)</option>
                     <option value="MYR">Malaysian Ringgit (MYR)</option>
@@ -245,7 +156,7 @@ const SettingsModule = () => {
                   id="backup"
                   value={systemSettings.backupFrequency}
                   onChange={(e) => setSystemSettings({...systemSettings, backupFrequency: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-input rounded-md"
                 >
                   <option value="hourly">Hourly</option>
                   <option value="daily">Daily</option>
@@ -270,7 +181,7 @@ const SettingsModule = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="autoNotif">Automatic Notifications</Label>
-                    <p className="text-sm text-gray-500">Receive notifications for system events</p>
+                    <p className="text-sm text-muted-foreground">Receive notifications for system events</p>
                   </div>
                   <input
                     id="autoNotif"
@@ -284,7 +195,7 @@ const SettingsModule = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="emailNotif">Email Notifications</Label>
-                    <p className="text-sm text-gray-500">Receive notifications via email</p>
+                    <p className="text-sm text-muted-foreground">Receive notifications via email</p>
                   </div>
                   <input
                     id="emailNotif"
@@ -298,7 +209,7 @@ const SettingsModule = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="smsNotif">SMS Notifications</Label>
-                    <p className="text-sm text-gray-500">Receive notifications via SMS</p>
+                    <p className="text-sm text-muted-foreground">Receive notifications via SMS</p>
                   </div>
                   <input
                     id="smsNotif"
@@ -338,7 +249,7 @@ const SettingsModule = () => {
                     id="passwordPolicy"
                     value={userSettings.passwordPolicy}
                     onChange={(e) => setUserSettings({...userSettings, passwordPolicy: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-input rounded-md"
                   >
                     <option value="basic">Basic (6+ characters)</option>
                     <option value="medium">Medium (8+ chars, mixed case)</option>
@@ -350,7 +261,7 @@ const SettingsModule = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="twoFactor">Two-Factor Authentication</Label>
-                  <p className="text-sm text-gray-500">Require 2FA for all users</p>
+                  <p className="text-sm text-muted-foreground">Require 2FA for all users</p>
                 </div>
                 <input
                   id="twoFactor"
@@ -367,59 +278,7 @@ const SettingsModule = () => {
         </TabsContent>
 
         <TabsContent value="data" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Management</CardTitle>
-              <CardDescription>Backup, export, and manage your system data</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <h4 className="font-medium mb-2">Manual Backup</h4>
-                    <p className="text-sm text-gray-600 mb-4">Create an immediate backup of all system data</p>
-                    <Button onClick={handleBackupData} className="w-full">
-                      Create Backup
-                    </Button>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-4">
-                    <h4 className="font-medium mb-2">Export Data</h4>
-                    <p className="text-sm text-gray-600 mb-4">Export all data to Excel/CSV format</p>
-                    <Button onClick={handleExportData} variant="outline" className="w-full">
-                      Export Data
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <h4 className="font-medium mb-2">Storage Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Database Size:</span>
-                      <span>245 MB</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Files & Images:</span>
-                      <span>1.2 GB</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Last Backup:</span>
-                      <span>Today, 2:00 AM</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Backup Status:</span>
-                      <span className="text-green-600">Healthy</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </CardContent>
-          </Card>
+          <DataManagementCard />
         </TabsContent>
 
         <TabsContent value="users" className="space-y-6">
@@ -435,7 +294,7 @@ const SettingsModule = () => {
                   id="defaultRole"
                   value={userSettings.defaultRole}
                   onChange={(e) => setUserSettings({...userSettings, defaultRole: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-input rounded-md"
                 >
                   <option value="Technician">Technician</option>
                   <option value="Storekeeper">Storekeeper</option>

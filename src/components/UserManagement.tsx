@@ -17,18 +17,20 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import UserForm from "@/components/forms/UserForm";
+import type { AppUser } from "@/types";
+import { uid } from "@/lib/id";
 import DeleteConfirmation from "@/components/DeleteConfirmation";
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
+  const [userToDelete, setUserToDelete] = useState<AppUser | null>(null);
 
   // Mock user data
-  const [users, setUsers] = useState([
+  const [users, setUsers] = useState<AppUser[]>([
     {
       id: "USR001",
       name: "John Tan",
@@ -114,16 +116,16 @@ const UserManagement = () => {
       case "Manager": return "bg-blue-100 text-blue-800";
       case "Technician": return "bg-green-100 text-green-800";
       case "Storekeeper": return "bg-purple-100 text-purple-800";
-      default: return "bg-gray-100 text-gray-800";
+      default: return "bg-muted text-foreground/90";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Active": return "bg-green-100 text-green-800";
-      case "Inactive": return "bg-gray-100 text-gray-800";
+      case "Inactive": return "bg-muted text-foreground/90";
       case "Suspended": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+      default: return "bg-muted text-foreground/90";
     }
   };
 
@@ -132,12 +134,12 @@ const UserManagement = () => {
     setShowForm(true);
   };
 
-  const handleEditUser = (user: any) => {
+  const handleEditUser = (user: AppUser) => {
     setEditingUser(user);
     setShowForm(true);
   };
 
-  const handleDeleteUser = (user: any) => {
+  const handleDeleteUser = (user: AppUser) => {
     setUserToDelete(user);
     setShowDeleteConfirm(true);
   };
@@ -151,7 +153,7 @@ const UserManagement = () => {
     setUserToDelete(null);
   };
 
-  const handleSaveUser = (formData: any) => {
+  const handleSaveUser = (formData: Partial<AppUser>) => {
     if (editingUser) {
       // Update existing user
       setUsers(prev => 
@@ -164,9 +166,10 @@ const UserManagement = () => {
     } else {
       // Add new user
       const newUser = {
-        ...formData,
+        ...(formData as AppUser),
+        id: formData.id || uid(),
         lastLogin: "Never",
-        permissions: getDefaultPermissions(formData.role)
+        permissions: getDefaultPermissions(formData.role ?? "")
       };
       setUsers(prev => [...prev, newUser]);
     }
@@ -189,8 +192,8 @@ const UserManagement = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
-          <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
+          <h2 className="text-2xl font-bold text-foreground">User Management</h2>
+          <p className="text-muted-foreground">Manage user accounts, roles, and permissions</p>
         </div>
         <Button onClick={handleAddUser}>
           <Plus className="h-4 w-4 mr-2" />
@@ -204,7 +207,7 @@ const UserManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Users</p>
+                <p className="text-sm text-muted-foreground">Total Users</p>
                 <p className="text-2xl font-bold">{users.length}</p>
               </div>
               <User className="h-8 w-8 text-blue-600" />
@@ -216,7 +219,7 @@ const UserManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Users</p>
+                <p className="text-sm text-muted-foreground">Active Users</p>
                 <p className="text-2xl font-bold">{users.filter(u => u.status === "Active").length}</p>
               </div>
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -230,7 +233,7 @@ const UserManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Technicians</p>
+                <p className="text-sm text-muted-foreground">Technicians</p>
                 <p className="text-2xl font-bold">{users.filter(u => u.role === "Technician").length}</p>
               </div>
               <Settings className="h-8 w-8 text-green-600" />
@@ -242,7 +245,7 @@ const UserManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Admins</p>
+                <p className="text-sm text-muted-foreground">Admins</p>
                 <p className="text-2xl font-bold">{users.filter(u => u.role === "Admin").length}</p>
               </div>
               <Shield className="h-8 w-8 text-red-600" />
@@ -256,7 +259,7 @@ const UserManagement = () => {
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Search by name, email, or department..."
                 value={searchTerm}
@@ -268,7 +271,7 @@ const UserManagement = () => {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md"
+              className="px-3 py-2 border border-input rounded-md"
             >
               {roles.map(role => (
                 <option key={role.value} value={role.value}>{role.label}</option>
@@ -297,7 +300,7 @@ const UserManagement = () => {
                     </div>
                     <div>
                       <h3 className="font-semibold text-lg">{user.name}</h3>
-                      <p className="text-sm text-gray-600">{user.department}</p>
+                      <p className="text-sm text-muted-foreground">{user.department}</p>
                       <div className="flex items-center space-x-2 mt-1">
                         <Badge className={getRoleColor(user.role)}>
                           {user.role}
@@ -329,19 +332,19 @@ const UserManagement = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="flex items-center space-x-2 text-muted-foreground">
                       <Mail className="h-4 w-4" />
                       <span>{user.email}</span>
                     </div>
                   </div>
                   <div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="flex items-center space-x-2 text-muted-foreground">
                       <Phone className="h-4 w-4" />
                       <span>{user.phone}</span>
                     </div>
                   </div>
                   <div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="flex items-center space-x-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
                       <span>Joined: {user.joinDate}</span>
                     </div>
@@ -351,7 +354,7 @@ const UserManagement = () => {
                 <div className="mt-3 pt-3 border-t">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-gray-600 mb-1">Permissions:</p>
+                      <p className="text-sm text-muted-foreground mb-1">Permissions:</p>
                       <div className="flex flex-wrap gap-1">
                         {user.permissions.map((permission: string, index: number) => (
                           <Badge key={index} variant="outline" className="text-xs">
@@ -361,7 +364,7 @@ const UserManagement = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-gray-500">Last Login:</p>
+                      <p className="text-xs text-muted-foreground">Last Login:</p>
                       <p className="text-sm font-medium">{user.lastLogin}</p>
                     </div>
                   </div>
@@ -383,11 +386,11 @@ const UserManagement = () => {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-3 font-medium text-gray-600">Permission</th>
-                  <th className="text-center p-3 font-medium text-gray-600">Admin</th>
-                  <th className="text-center p-3 font-medium text-gray-600">Manager</th>
-                  <th className="text-center p-3 font-medium text-gray-600">Technician</th>
-                  <th className="text-center p-3 font-medium text-gray-600">Storekeeper</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Permission</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Admin</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Manager</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Technician</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Storekeeper</th>
                 </tr>
               </thead>
               <tbody>
@@ -429,7 +432,7 @@ const UserManagement = () => {
               </tbody>
             </table>
           </div>
-          <div className="mt-4 text-sm text-gray-500">
+          <div className="mt-4 text-sm text-muted-foreground">
             <p>Legend: ✅ Full Access | 👀 View Only | ❌ No Access</p>
           </div>
         </CardContent>
