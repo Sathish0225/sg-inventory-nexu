@@ -1,53 +1,62 @@
 name: Build apps
 
-# Builds the mobile and desktop apps. Run manually from the Actions tab, or push a tag like v1.2.0.
+# Builds the phone app (Expo) and the desktop app (Electron). Run manually from the Actions tab, or push a tag like v1.2.0.
 on:
   workflow_dispatch:
   push:
     tags: ["v*"]
 
 jobs:
+  # Phone app (React Native / Expo, mobile/). For store builds use EAS instead (see README).
   android:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: mobile/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 17
       - run: npm ci
-      - run: npm run build
-      - run: npx cap sync android
-      - name: Build debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+      - run: npx expo prebuild --platform android --no-install
+      # Installable APK for testing on staff phones (signed with the debug key).
+      - name: Build APK
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: inventrack-android-debug
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: inventrack-android
+          path: mobile/android/app/build/outputs/apk/release/*.apk
 
   ios:
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: mobile/package-lock.json
       - run: npm ci
-      - run: npm run build
-      - run: npx cap sync ios
-      # Unsigned simulator build proves the project compiles. App Store / TestFlight builds need
-      # your Apple Developer signing certificate and are made from Xcode (see README).
+      - run: npx expo prebuild --platform ios
+      # Unsigned simulator build proves the project compiles. TestFlight / App Store builds need
+      # your Apple Developer account: `npx eas-cli build -p ios` (see README).
       - name: Build for simulator (unsigned)
-        run: >
-          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Debug
-          -sdk iphonesimulator -destination "generic/platform=iOS Simulator"
-          CODE_SIGNING_ALLOWED=NO build
+        run: |
+          WORKSPACE=$(ls -d ios/*.xcworkspace)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release \
+            -sdk iphonesimulator -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO build
 
   desktop:
     strategy:

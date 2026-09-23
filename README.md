@@ -68,71 +68,88 @@ completed service jobs.
   permissions (`src/lib/permissions.ts`).
 
 In production the API also serves the built web app, so there is one process and one port. The
-mobile and desktop apps bundle the same web app and call the API cross-origin with a bearer token.
+desktop app bundles the same web app; the phone app is a separate React Native (Expo) project. Both
+call the API with a bearer token.
 
-## Mobile and desktop apps
-
-The same React app ships in three forms, all talking to your company server:
+## Phone and desktop apps
 
 | App | Built with | Where it lives |
 | --- | --- | --- |
-| Web | Vite | served by the API at your server address |
-| Android and iOS | [Capacitor](https://capacitorjs.com) | `android/`, `ios/`, `capacitor.config.ts` |
-| Windows, macOS and Linux | [Electron](https://www.electronjs.org) | `desktop/` |
+| Web | React + Vite | served by the API at your server address |
+| **Phone (Android and iOS)** | **React Native + Expo** (SDK 57, Expo Router) | `mobile/` |
+| Desktop (Windows, macOS and Linux) | Electron, wrapping the web app | `desktop/` |
 
-On first launch the apps ask for the **company server** address (e.g. `inventrack.yourcompany.sg`),
-then an email and password. They stay signed in for 30 days.
+All three talk to the same server. On first launch the apps ask for the **company server** address
+(e.g. `inventrack.yourcompany.sg`), then an email and password, and stay signed in for 30 days.
 
-- **Sign-in on devices.** Apps use a bearer token instead of the browser cookie. On desktop the token is
-  encrypted with the OS keychain (on Linux this needs a GNOME or KDE keyring, otherwise an owner-only
-  file is used); on phones it's kept in app-private storage.
-- **Revoking access.** Changing a password signs the user out on every device. So does an admin
+### Phone app (`mobile/`)
+
+It has native screens designed for use in the field:
+
+| Tab | What it does |
+| --- | --- |
+| Home | Role-aware summary; an "on site" banner with one tap to check out; upcoming jobs, overdue invoices, reorder alerts |
+| Jobs | My jobs or everyone's; job detail with **check in / check out (GPS)**, work notes, parts, visits, directions, mark completed, create invoice, print or share the service report as a PDF |
+| Stock | Search, **barcode / QR scanning** (SKU or serial number), stock levels, stock in/out (for roles allowed to) |
+| Sales | Quotations, sales orders and invoices: mark sent or rejected, convert, confirm, fulfil, issue, **record payments**, print or share the PDF |
+| More | Attendance and timesheet hours, customers (tap to call or email), change password, sign out |
+
+Creating new jobs, quotations and invoices with many lines is left to the web and desktop apps, where a
+keyboard and a large screen make it quicker.
+
+Details:
+
+- **Shared code:** the phone app reuses the web app's types, GST maths, permissions and printable
+  documents from `src/` (Babel alias `@/…`, watched by Metro), so totals and PDFs match everywhere.
+- **Sign-in:** the token is stored in the iOS Keychain / Android Keystore (`expo-secure-store`). If
+  the phone has no signal at launch, the app keeps you signed in and offers a retry.
+- **Revoking access:** changing a password signs the user out on every device. So does an admin
   resetting their password, changing their role or disabling them.
-- **HTTPS required.** Apps only connect to `https://` servers (plus `localhost` for testing).
-- **Allowed origins.** The server accepts cross-origin calls only from the app origins in `APP_ORIGINS`.
-- **Phones:**
-  - check-in uses native GPS, with the system permission prompt;
-  - printing opens the share sheet (print, save to Files, email or WhatsApp the document);
-  - the Android back button closes dialogs and navigates back;
-  - data refreshes when the app returns to the foreground.
-- **Desktop:** native print dialog and save dialogs, a single window per user, and external links open
-  in the browser. The page is sandboxed with no Node.js access and a strict content security policy.
+- **Permissions:** location (attendance proof) and camera (barcode scanning) only, each with an
+  explanation shown to the user; microphone, storage and overlay permissions are blocked.
+- **HTTPS:** the server must use HTTPS; iOS and Android block plain-http connections by default.
 
-### Building the apps
-
-The **Build apps** GitHub Action (`.github/workflows/apps.yml`) builds everything. Run it from the Actions tab
-or push a tag such as `v1.0.0`. It produces an Android debug APK; Windows, macOS and Linux installers; and an
-iOS simulator build that checks the project compiles.
-
-Locally:
+Run it on your phone during development with **Expo Go**. Every native module the app uses is included in
+Expo Go.
 
 ```sh
-# Desktop (installers land in desktop/release/)
-npm --prefix desktop install
-npm run desktop:start          # run it
-npm run desktop:dist           # build installers for this OS
-
-# Mobile: needs Android Studio (Android) or Xcode on a Mac (iOS)
-npm run mobile:android         # build the web app, sync, open Android Studio
-npm run mobile:ios             # build the web app, sync, open Xcode
+cd mobile
+npm install
+npx expo start          # scan the QR code with Expo Go (Android) or the Camera app (iPhone)
+npx tsc --noEmit        # typecheck
 ```
 
-App icons and splash screens are generated from `assets/`. After changing them, run
-`npx @capacitor/assets generate`. The desktop icon is `desktop/build/icon.png`.
+Builds:
 
-### Publishing to the stores
+- **Test APK for staff phones:** run the *Build apps* GitHub Action, or `npx eas-cli build -p android --profile preview`.
+- **App Store / Google Play:** use EAS, which builds and signs in the cloud without needing a Mac:
+  `npx eas-cli build -p ios --profile production` and `-p android --profile production`, then
+  `npx eas-cli submit`. This needs a free Expo account, an Apple Developer account for iOS, and a
+  Google Play developer account for Android. For staff-only distribution, use TestFlight / Apple Business
+  Manager and a Google Play internal track or private app.
+- **Native projects:** `android/` and `ios/` are generated (`npx expo prebuild`) and not committed;
+  configure native behaviour in `mobile/app.json`.
 
-These steps need your own developer accounts and signing keys, so they aren't automated here:
+### Desktop app (`desktop/`)
 
-- **Google Play:** in Android Studio, *Build → Generate Signed Bundle*. Create an upload key once
-  and keep it safe. Upload the `.aab` in the Play Console; for staff-only use, publish to an internal
-  testing track or a managed Google Play private app.
-- **Apple App Store / TestFlight:** needs an Apple Developer account (and a Mac). In Xcode set your Team
-  under *Signing & Capabilities*, then *Product → Archive → Distribute*. For staff-only distribution, use
-  TestFlight or Apple Business Manager (Custom Apps).
-- **Desktop:** unsigned installers work but show "unknown publisher" warnings. To sign, add a Windows
-  code-signing certificate (`CSC_LINK`, `CSC_KEY_PASSWORD`) and, on macOS, an Apple Developer ID plus
-  notarisation credentials as secrets in the workflow.
+The desktop app is the web app packaged with Electron. It has native print and save dialogs, one window per
+user, and external links open in your browser. The page is sandboxed with no Node.js access and a
+strict content security policy, and the sign-in token is encrypted with the OS keychain (on Linux this
+needs a GNOME or KDE keyring, otherwise an owner-only file is used).
+
+```sh
+npm --prefix desktop install
+npm run desktop:start          # run it
+npm run desktop:dist           # build installers for this OS (desktop/release/)
+```
+
+### Building everything
+
+The **Build apps** GitHub Action (`.github/workflows/apps.yml`) runs from the Actions tab or when you push a tag
+such as `v1.0.0`. It produces an Android APK, an iOS simulator build that checks the project compiles, and
+Windows, macOS and Linux installers. Unsigned desktop installers show "unknown publisher" warnings; to sign
+them, add a Windows code-signing certificate (`CSC_LINK`, `CSC_KEY_PASSWORD`) and an Apple Developer ID plus
+notarisation credentials as secrets in the workflow.
 
 ## Local development
 
@@ -206,13 +223,13 @@ src/                     web app
   lib/calc.ts            money, GST, dates, statuses (shared, unit-tested)
   lib/permissions.ts     roles → permissions (shared)
   lib/api.ts             fetch wrapper
-  lib/platform.ts        web / desktop / mobile differences (storage, GPS, files, printing)
+  lib/platform.ts        web / desktop differences (storage, GPS, files)
+  lib/documents.ts       printable documents as HTML (shared with the phone app)
   lib/print.ts           printable quotations, orders, invoices, service & inventory reports
   store/useStore.ts      client cache + API actions
   components/, pages/    UI
-android/, ios/           Capacitor native projects (mobile apps)
+mobile/                  phone app: React Native + Expo (src/app = screens, src/lib, src/ui)
 desktop/                 Electron app (main.cjs, preload.cjs, installer config)
-assets/                  source images for app icons and splash screens
 server/                  API
   prisma/schema.prisma   database schema;  prisma/migrations/  SQL migrations
   prisma/seed.ts         users + demo data

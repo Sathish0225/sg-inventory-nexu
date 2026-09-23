@@ -17,7 +17,7 @@ const withToken = (token: string, method: "GET" | "POST" = "GET", url = "/api/au
   app.inject({ method, url, payload, headers: { authorization: `Bearer ${token}` } });
 
 describe("mobile / desktop app access", () => {
-  it("issues a bearer token instead of a cookie", async () => {
+  it("issues a bearer token instead of a cookie (phone / desktop apps)", async () => {
     const res = await appLogin("alex@test.sg");
     expect(res.status).toBe(200);
     expect(res.body.token).toEqual(expect.any(String));
@@ -27,8 +27,8 @@ describe("mobile / desktop app access", () => {
     expect((await withToken("not-a-token")).statusCode).toBe(401);
   });
 
-  it("allows the app origins cross-origin, without credentials, and nobody else", async () => {
-    for (const origin of ["capacitor://localhost", "https://localhost", "app://inventrack"]) {
+  it("allows the desktop app origin cross-origin, without credentials, and nobody else", async () => {
+    for (const origin of ["app://inventrack"]) {
       const res = await app.inject({
         method: "OPTIONS",
         url: "/api/auth/login",

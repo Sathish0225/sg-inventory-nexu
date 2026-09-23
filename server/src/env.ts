@@ -22,12 +22,13 @@ const schema = z.object({
    */
   COOKIE_SECURE: z.enum(["true", "false"]).optional(),
   /**
-   * Origins allowed to call the API cross-origin: the mobile apps (Capacitor) and the desktop app
-   * (Electron). They authenticate with bearer tokens, never cookies. Comma-separated.
+   * Browser-based origins allowed to call the API cross-origin: the desktop app (Electron). They
+   * authenticate with bearer tokens, never cookies. Comma-separated. (The React Native phone app
+   * isn't a browser, so CORS doesn't apply to it.)
    */
   APP_ORIGINS: z
     .string()
-    .default("capacitor://localhost,https://localhost,app://inventrack")
+    .default("app://inventrack")
     .transform((v) =>
       v
         .split(",")
