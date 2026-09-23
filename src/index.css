@@ -93,6 +93,8 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    /* Keep content clear of notches and home indicators in the phone apps. */
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     font-feature-settings: "cv11", "ss01";
   }
 
@@ -103,6 +105,14 @@
 }
 
 @layer utilities {
+  /* Status bar / notch inset for elements pinned to the top (header, mobile menu). */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  [data-sidebar="sidebar"] {
+    padding-top: env(safe-area-inset-top);
+  }
+
   .tabular {
     font-variant-numeric: tabular-nums;
   }

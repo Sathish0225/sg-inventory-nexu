@@ -21,6 +21,20 @@ const schema = z.object({
    * install reached over http://<LAN address>.
    */
   COOKIE_SECURE: z.enum(["true", "false"]).optional(),
+  /**
+   * Browser-based origins allowed to call the API cross-origin: the desktop app (Electron). They
+   * authenticate with bearer tokens, never cookies. Comma-separated. (The React Native phone app
+   * isn't a browser, so CORS doesn't apply to it.)
+   */
+  APP_ORIGINS: z
+    .string()
+    .default("app://inventrack")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((o) => o.trim())
+        .filter(Boolean),
+    ),
   /** Login attempts allowed per IP per minute. */
   LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(10),
   /** Directory of the built web app to serve in production (optional). */

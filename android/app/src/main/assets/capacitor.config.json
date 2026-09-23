@@ -1,0 +1,13 @@
+{
+	"appId": "sg.inventrack.app",
+	"appName": "InvenTrack SG",
+	"webDir": "dist",
+	"android": {
+		"allowMixedContent": false
+	},
+	"plugins": {
+		"StatusBar": {
+			"overlaysWebView": true
+		}
+	}
+}

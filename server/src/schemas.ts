@@ -13,6 +13,8 @@ const id = z.string().uuid();
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1).max(200),
+  /** "app" for the mobile / desktop apps, which use bearer tokens instead of cookies. */
+  client: z.enum(["web", "app"]).default("web"),
 });
 
 export const changePasswordSchema = z.object({

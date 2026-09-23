@@ -1,0 +1,1 @@
+import{r as a,j as i,I as p}from"./index-D3T-yUNX.js";const x=({value:t,onValueChange:o,...u})=>{const[e,r]=a.useState(String(t));return a.useEffect(()=>{Number(e)!==t&&r(String(t))},[t]),i.jsx(p,{...u,type:"number",inputMode:"decimal",value:e,onChange:s=>{r(s.target.value);const n=parseFloat(s.target.value);o(Number.isFinite(n)?n:0)}})};export{x as N};

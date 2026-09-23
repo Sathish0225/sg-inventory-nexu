@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, configureApi, probeServer } from "@/lib/api";
+import { appStorage, isApp, normaliseServerUrl } from "@/lib/platform";
 import { can, type Permission, type Role } from "@/lib/permissions";
 import type {
   AttendanceRecord,
@@ -71,6 +72,10 @@ const sources: Record<Key, { path: string; permission?: Permission }> = {
 };
 const allKeys = Object.keys(sources) as Key[];
 
+/** App storage keys. */
+export const SERVER_KEY = "serverUrl";
+const TOKEN_KEY = "authToken";
+
 const emptySettings: CompanySettings = {
   name: "",
   uen: "",
@@ -101,7 +106,9 @@ const emptyCollections = (): Collections => ({
 });
 
 interface State extends Collections {
-  status: "checking" | "signed-out" | "loading" | "ready";
+  status: "checking" | "signed-out" | "loading" | "ready" | "unreachable";
+  /** Why the app couldn't reach its server (apps only). */
+  connectionError: string | null;
   user: SessionUser | null;
   settings: CompanySettings;
 }
@@ -109,7 +116,8 @@ interface State extends Collections {
 interface Actions {
   /** Restore an existing session on page load. */
   bootstrap: () => Promise<void>;
-  login: (email: string, password: string) => Promise<Result>;
+  /** `server` is required in the desktop / mobile apps (the company server address). */
+  login: (email: string, password: string, server?: string) => Promise<Result>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<Result>;
   /** Re-fetch collections (all readable ones when no keys are given). */
@@ -167,7 +175,13 @@ export type AppState = State & Actions;
 export const useStore = create<AppState>()((set, get) => {
   const readable = (keys: Key[]) => keys.filter((k) => !sources[k].permission || can(get().user?.role, sources[k].permission!));
 
-  const signedOut = () => set({ status: "signed-out", user: null, settings: emptySettings, ...emptyCollections() });
+  const signedOut = () => {
+    if (isApp) {
+      configureApi({ token: null });
+      void appStorage.remove(TOKEN_KEY);
+    }
+    set({ status: "signed-out", user: null, settings: emptySettings, ...emptyCollections() });
+  };
 
   /** Call the API, refresh what it touched, and turn failures into a Result. */
   async function run<T>(call: () => Promise<T>, touches: Key[]): Promise<Result<T>> {
@@ -189,23 +203,55 @@ export const useStore = create<AppState>()((set, get) => {
 
   return {
     status: "checking",
+    connectionError: null,
     user: null,
     settings: emptySettings,
     ...emptyCollections(),
 
     bootstrap: async () => {
       try {
+        if (isApp) {
+          // Apps remember the server and their token between launches.
+          const [server, token] = await Promise.all([appStorage.get(SERVER_KEY), appStorage.get(TOKEN_KEY)]);
+          if (!server || !token) return signedOut();
+          configureApi({ baseUrl: server, token });
+        }
         const { user } = await api.get<{ user: SessionUser }>("/auth/me");
         set({ user, status: "loading" });
         await get().refresh();
-        set({ status: "ready" });
-      } catch {
+        set({ status: "ready", connectionError: null });
+      } catch (err) {
+        // Only a rejected token means "signed out". Apps started without signal keep their saved
+        // sign-in and offer a retry instead of throwing it away.
+        if (isApp && !(err instanceof ApiError && err.status === 401)) {
+          set({ status: "unreachable", connectionError: err instanceof Error ? err.message : "Can't reach the server." });
+          return;
+        }
         signedOut();
       }
     },
 
-    login: async (email, password) => {
+    login: async (email, password, server) => {
       try {
+        if (isApp) {
+          const baseUrl = normaliseServerUrl(server ?? "");
+          if (!baseUrl) return { ok: false, error: "Enter your company's server address." };
+          configureApi({ baseUrl, token: null });
+          if (!(await probeServer(baseUrl))) {
+            return { ok: false, error: `No InvenTrack server found at ${baseUrl}. Check the address and your connection.` };
+          }
+          const { user, token } = await api.post<{ user: SessionUser; token: string }>("/auth/login", {
+            email,
+            password,
+            client: "app",
+          });
+          configureApi({ token });
+          await Promise.all([appStorage.set(SERVER_KEY, baseUrl), appStorage.set(TOKEN_KEY, token)]);
+          set({ user, status: "loading" });
+          await get().refresh();
+          set({ status: "ready" });
+          return { ok: true, value: undefined };
+        }
         const { user } = await api.post<{ user: SessionUser }>("/auth/login", { email, password });
         set({ user, status: "loading" });
         await get().refresh();
@@ -221,8 +267,15 @@ export const useStore = create<AppState>()((set, get) => {
       signedOut();
     },
 
-    changePassword: (currentPassword, newPassword) =>
-      done(run(() => api.post("/auth/password", { currentPassword, newPassword }), [])),
+    changePassword: async (currentPassword, newPassword) => {
+      const r = await run(() => api.post<{ ok: true; token?: string }>("/auth/password", { currentPassword, newPassword }), []);
+      // Changing the password signs out every other device; the app gets a fresh token for itself.
+      if (r.ok && r.value.token) {
+        configureApi({ token: r.value.token });
+        await appStorage.set(TOKEN_KEY, r.value.token);
+      }
+      return r.ok ? { ok: true, value: undefined } : r;
+    },
 
     refresh: async (...keys) => {
       const wanted = readable(keys.length ? keys : allKeys);

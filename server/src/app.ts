@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import Fastify, { type FastifyError } from "fastify";
 import cookie from "@fastify/cookie";
+import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
@@ -29,6 +30,15 @@ export async function buildApp(env: Env) {
   });
 
   await app.register(cookie);
+  // Only the app origins may call cross-origin, and without credentials: apps send a bearer
+  // token, so the browser session cookie is never usable from another site.
+  await app.register(cors, {
+    origin: env.APP_ORIGINS,
+    credentials: false,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400,
+  });
   await app.register(jwt, { secret: env.JWT_SECRET, cookie: { cookieName: SESSION_COOKIE, signed: false } });
   await app.register(rateLimit, { global: false });
   registerSessionHook(app);
