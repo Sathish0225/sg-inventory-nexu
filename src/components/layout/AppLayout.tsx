@@ -6,9 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import NotificationSystem from "@/components/NotificationSystem";
 import AppSidebar from "./AppSidebar";
 import ThemeToggle from "./ThemeToggle";
+import UserMenu from "./UserMenu";
 import { allNavItems } from "./nav";
-
-const currentUser = { name: "John Tan", role: "Admin" };
 
 const PageFallback = () => (
   <div className="space-y-4">
@@ -38,18 +37,7 @@ const AppLayout = () => {
           <div className="ml-auto flex items-center gap-1">
             <NotificationSystem />
             <ThemeToggle />
-            <div className="ml-2 hidden items-center gap-2 sm:flex">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                {currentUser.name
-                  .split(" ")
-                  .map((p) => p[0])
-                  .join("")}
-              </div>
-              <div className="leading-tight">
-                <p className="text-sm font-medium">{currentUser.name}</p>
-                <p className="text-xs text-muted-foreground">{currentUser.role}</p>
-              </div>
-            </div>
+            <UserMenu />
           </div>
         </header>
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-6 lg:p-8">

@@ -10,7 +10,7 @@ import SearchInput from "@/components/common/SearchInput";
 import CustomerDialog from "@/components/sales/CustomerDialog";
 import { balanceDue, formatSGD, invoiceTotal } from "@/lib/calc";
 import { notify } from "@/lib/result";
-import { useStore } from "@/store/useStore";
+import { useCan, useStore, type Result } from "@/store/useStore";
 import type { Customer } from "@/types";
 
 const CustomersPage = () => {
@@ -19,6 +19,7 @@ const CustomersPage = () => {
   const jobs = useStore((s) => s.jobs);
   const quotations = useStore((s) => s.quotations);
   const store = useStore.getState;
+  const canWrite = useCan("customers:write");
 
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -50,9 +51,11 @@ const CustomersPage = () => {
         title="Customers"
         description="One customer record shared by service jobs, quotations, sales orders and invoices."
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="mr-2 h-4 w-4" /> New customer
-          </Button>
+          canWrite && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="mr-2 h-4 w-4" /> New customer
+            </Button>
+          )
         }
       />
 
@@ -104,7 +107,7 @@ const CustomersPage = () => {
                         {formatSGD(outstanding)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end">
+                        <div className={canWrite ? "flex justify-end" : "hidden"}>
                           <Button variant="ghost" size="icon" aria-label={`Edit ${c.name}`} onClick={() => setEditing(c)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -131,16 +134,12 @@ const CustomersPage = () => {
             setEditing(null);
           }
         }}
-        onSave={(input) => {
-          if (editing) {
-            store().updateCustomer(editing.id, input);
-            notify({ ok: true, value: undefined }, `${input.name} updated`);
-          } else {
-            store().addCustomer(input);
-            notify({ ok: true, value: undefined }, `${input.name} added`);
+        onSave={async (input) => {
+          const r: Result<unknown> = editing ? await store().updateCustomer(editing.id, input) : await store().addCustomer(input);
+          if (notify(r, `${input.name} ${editing ? "updated" : "added"}`)) {
+            setCreating(false);
+            setEditing(null);
           }
-          setCreating(false);
-          setEditing(null);
         }}
       />
 
@@ -150,8 +149,8 @@ const CustomersPage = () => {
         title={`Delete ${deleting?.name}?`}
         description="Customers with jobs or sales documents can't be deleted."
         confirmLabel="Delete"
-        onConfirm={() => {
-          if (deleting) notify(store().deleteCustomer(deleting.id), `${deleting.name} deleted`);
+        onConfirm={async () => {
+          if (deleting) notify(await store().deleteCustomer(deleting.id), `${deleting.name} deleted`);
           setDeleting(null);
         }}
       />

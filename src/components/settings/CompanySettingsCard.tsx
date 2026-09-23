@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/result";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,11 +21,10 @@ const CompanySettingsCard = () => {
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
   const [form, setForm] = useState<CompanySettings>(settings);
-  const [techniciansText, setTechniciansText] = useState(settings.technicians.join("\n"));
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setForm(settings);
-    setTechniciansText(settings.technicians.join("\n"));
   }, [settings]);
 
   const set = (patch: Partial<CompanySettings>) => setForm((f) => ({ ...f, ...patch }));
@@ -35,11 +34,12 @@ const CompanySettingsCard = () => {
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => set({ [key]: e.target.value }),
   });
 
-  const save = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const technicians = [...new Set(techniciansText.split("\n").map((t) => t.trim()).filter(Boolean))];
-    updateSettings({ ...form, technicians });
-    toast.success("Company settings saved");
+    const { technicians: _fromUsers, ...values } = form;
+    setSaving(true);
+    notify(await updateSettings(values), "Company settings saved");
+    setSaving(false);
   };
 
   return (
@@ -146,12 +146,15 @@ const CompanySettingsCard = () => {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="co-techs">Technicians (one per line)</Label>
-              <Textarea id="co-techs" rows={4} value={techniciansText} onChange={(e) => setTechniciansText(e.target.value)} />
+              <Label>Technicians</Label>
+              <p className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                {form.technicians.length ? form.technicians.join(", ") : "None yet."} Technicians are the active users
+                with the Technician role — add or remove them under <strong>Users</strong>.
+              </p>
             </div>
           </div>
-          <Button type="submit" className="w-fit">
-            Save settings
+          <Button type="submit" className="w-fit" disabled={saving}>
+            {saving ? "Saving…" : "Save settings"}
           </Button>
         </CardContent>
       </Card>

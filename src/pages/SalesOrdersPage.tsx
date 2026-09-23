@@ -22,7 +22,7 @@ import DocumentEditorDialog, { type DocumentFormValues } from "@/components/sale
 import { documentTotals, formatDate, formatSGD, formatSGDCompact, todayISO } from "@/lib/calc";
 import { printSalesOrder } from "@/lib/print";
 import { notify } from "@/lib/result";
-import { selectCustomerName, useStore } from "@/store/useStore";
+import { selectCustomerName, useCan, useStore } from "@/store/useStore";
 import type { SalesOrder, SalesOrderStatus } from "@/types";
 
 const statuses: ("All" | SalesOrderStatus)[] = ["All", "Pending", "Confirmed", "Fulfilled", "Cancelled"];
@@ -45,6 +45,7 @@ const SalesOrdersPage = () => {
   const quotations = useStore((s) => s.quotations);
   const settings = useStore((s) => s.settings);
   const store = useStore.getState;
+  const canFulfil = useCan("inventory:write");
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<(typeof statuses)[number]>("All");
@@ -75,7 +76,7 @@ const SalesOrdersPage = () => {
   const toFulfil = orders.filter((o) => o.status === "Pending" || o.status === "Confirmed");
   const uninvoiced = active.filter((o) => !o.invoiceId);
 
-  const save = (values: DocumentFormValues) => {
+  const save = async (values: DocumentFormValues) => {
     const input = {
       customerId: values.customerId,
       date: values.date,
@@ -86,20 +87,19 @@ const SalesOrdersPage = () => {
       gstRate: values.gstRate,
     };
     if (editing) {
-      if (notify(store().updateSalesOrder(editing.id, input), `${editing.number} updated`)) setEditing(null);
+      if (notify(await store().updateSalesOrder(editing.id, input), `${editing.number} updated`)) setEditing(null);
     } else {
-      const o = store().createSalesOrder({ ...input, status: "Pending" });
-      notify({ ok: true, value: o }, `${o.number} created`);
-      setCreating(false);
+      const r = await store().createSalesOrder(input);
+      if (notify(r, r.ok ? `${r.value.number} created` : undefined)) setCreating(false);
     }
   };
 
-  const runConfirm = () => {
+  const runConfirm = async () => {
     if (!confirm) return;
     const { order, action } = confirm;
-    if (action === "fulfil") notify(store().fulfilSalesOrder(order.id), `${order.number} fulfilled — stock updated`);
-    if (action === "cancel") notify(store().cancelSalesOrder(order.id), `${order.number} cancelled`);
-    if (action === "delete") notify(store().deleteSalesOrder(order.id), `${order.number} deleted`);
+    if (action === "fulfil") notify(await store().fulfilSalesOrder(order.id), `${order.number} fulfilled — stock updated`);
+    if (action === "cancel") notify(await store().cancelSalesOrder(order.id), `${order.number} cancelled`);
+    if (action === "delete") notify(await store().deleteSalesOrder(order.id), `${order.number} deleted`);
     setConfirm(null);
   };
 
@@ -200,20 +200,20 @@ const SalesOrdersPage = () => {
                               </DropdownMenuItem>
                               {o.status === "Pending" && (
                                 <DropdownMenuItem
-                                  onClick={() => notify(store().confirmSalesOrder(o.id), `${o.number} confirmed`)}
+                                  onClick={async () => notify(await store().confirmSalesOrder(o.id), `${o.number} confirmed`)}
                                 >
                                   <CheckCircle2 className="mr-2 h-4 w-4" /> Confirm order
                                 </DropdownMenuItem>
                               )}
-                              {!locked(o) && (
+                              {!locked(o) && canFulfil && (
                                 <DropdownMenuItem onClick={() => setConfirm({ order: o, action: "fulfil" })}>
                                   <PackageCheck className="mr-2 h-4 w-4" /> Fulfil (deduct stock)
                                 </DropdownMenuItem>
                               )}
                               {!o.invoiceId && o.status !== "Cancelled" && (
                                 <DropdownMenuItem
-                                  onClick={() => {
-                                    const r = store().convertSalesOrderToInvoice(o.id);
+                                  onClick={async () => {
+                                    const r = await store().convertSalesOrderToInvoice(o.id);
                                     if (notify(r, r.ok ? `Draft invoice ${r.value.number} created` : undefined)) navigate("/invoices");
                                   }}
                                 >

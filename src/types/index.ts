@@ -188,16 +188,3 @@ export interface CompanySettings {
   quotationTerms: string;
 }
 
-/** App login user (user management screen). */
-export interface AppUser {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  department: string;
-  status: string;
-  lastLogin: string;
-  permissions: string[];
-  joinDate: string;
-}

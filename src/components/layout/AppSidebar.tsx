@@ -16,6 +16,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { invoiceDisplayStatus, stockStatus } from "@/lib/calc";
+import { can } from "@/lib/permissions";
 import { useStore } from "@/store/useStore";
 import { navGroups } from "./nav";
 
@@ -36,6 +37,10 @@ const AppSidebar = () => {
   const { setOpenMobile } = useSidebar();
   const companyName = useStore((s) => s.settings.name);
   const badges = useNavBadges();
+  const role = useStore((s) => s.user?.role);
+  const groups = navGroups
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.permission || can(role, i.permission)) }))
+    .filter((g) => g.items.length > 0);
 
   const isActive = (path: string) => (path === "/" ? pathname === "/" : pathname.startsWith(path));
 
@@ -53,7 +58,7 @@ const AppSidebar = () => {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {navGroups.map((group) => (
+        {groups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>

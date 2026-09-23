@@ -22,11 +22,13 @@ interface ServiceFormProps {
   job: ServiceJob | null;
   /** Prefill for quick actions such as "Emergency service". */
   preset?: Partial<NewServiceJob>;
+  /** Technician editing their own job: only status, parts and notes can change. */
+  restricted?: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: NewServiceJob) => void;
 }
 
-const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormProps) => {
+const ServiceForm = ({ open, job, preset, restricted = false, onOpenChange, onSave }: ServiceFormProps) => {
   const inventory = useStore((s) => s.inventory);
   const settings = useStore((s) => s.settings);
   const customers = useStore((s) => s.customers);
@@ -98,7 +100,7 @@ const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormPro
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="job-priority">Priority</Label>
-              <Select value={form.priority} onValueChange={(v) => set({ priority: v as JobPriority })}>
+              <Select value={form.priority} onValueChange={(v) => set({ priority: v as JobPriority })} disabled={restricted}>
                 <SelectTrigger id="job-priority">
                   <SelectValue />
                 </SelectTrigger>
@@ -133,6 +135,7 @@ const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormPro
               <Label htmlFor="job-customer">Customer</Label>
               <CustomerSelect
                 id="job-customer"
+                disabled={restricted}
                 value={form.customerId ?? ""}
                 onChange={(customerId) =>
                   set({ customerId, customer: customers.find((c) => c.id === customerId)?.name ?? form.customer })
@@ -141,11 +144,11 @@ const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormPro
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="job-site">Site location</Label>
-              <Input id="job-site" value={form.site} onChange={(e) => set({ site: e.target.value })} required />
+              <Input id="job-site" value={form.site} onChange={(e) => set({ site: e.target.value })} required disabled={restricted} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="job-type">Service type</Label>
-              <Select value={form.serviceType} onValueChange={(v) => set({ serviceType: v as ServiceType })}>
+              <Select value={form.serviceType} onValueChange={(v) => set({ serviceType: v as ServiceType })} disabled={restricted}>
                 <SelectTrigger id="job-type">
                   <SelectValue />
                 </SelectTrigger>
@@ -160,7 +163,7 @@ const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormPro
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="job-tech">Technician</Label>
-              <Select value={form.technician} onValueChange={(technician) => set({ technician })}>
+              <Select value={form.technician} onValueChange={(technician) => set({ technician })} disabled={restricted}>
                 <SelectTrigger id="job-tech">
                   <SelectValue placeholder="Select technician" />
                 </SelectTrigger>
@@ -182,6 +185,7 @@ const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormPro
                   value={form.dateScheduled}
                   onChange={(e) => set({ dateScheduled: e.target.value })}
                   required
+                  disabled={restricted}
                 />
               </div>
               <div className="grid gap-1.5">
@@ -192,6 +196,7 @@ const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormPro
                   value={form.timeScheduled}
                   onChange={(e) => set({ timeScheduled: e.target.value })}
                   required
+                  disabled={restricted}
                 />
               </div>
             </div>
@@ -203,6 +208,7 @@ const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormPro
                 step="0.01"
                 value={form.labourRate}
                 onValueChange={(labourRate) => set({ labourRate })}
+                disabled={restricted}
               />
             </div>
           </div>
@@ -215,6 +221,7 @@ const ServiceForm = ({ open, job, preset, onOpenChange, onSave }: ServiceFormPro
               value={form.description}
               onChange={(e) => set({ description: e.target.value })}
               required
+              disabled={restricted}
             />
           </div>
 
