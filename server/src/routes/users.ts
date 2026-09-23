@@ -23,9 +23,16 @@ export default async function userRoutes(app: FastifyInstance) {
     if (request.params.id === me.id && (patch.active === false || (patch.role && patch.role !== "ADMIN"))) {
       throw badRequest("You can't disable your own account or remove your own admin role.");
     }
+    const current = await prisma.user.findUniqueOrThrow({ where: { id: request.params.id } });
+    // A password reset, role change or deactivation signs the user out on every device.
+    const revoke = Boolean(password) || patch.active === false || (patch.role !== undefined && patch.role !== current.role);
     return prisma.user.update({
       where: { id: request.params.id },
-      data: { ...patch, ...(password ? { passwordHash: await hashPassword(password) } : {}) },
+      data: {
+        ...patch,
+        ...(password ? { passwordHash: await hashPassword(password) } : {}),
+        ...(revoke ? { tokenVersion: { increment: 1 } } : {}),
+      },
       select: publicUser,
     });
   });

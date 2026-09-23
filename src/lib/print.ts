@@ -12,6 +12,7 @@ import {
   stockStatus,
 } from "@/lib/calc";
 import { escapeHtml as e, escapeMultiline as ml } from "@/lib/html";
+import { isMobileApp, saveFile } from "@/lib/platform";
 import type {
   AttendanceRecord,
   CompanySettings,
@@ -54,7 +55,13 @@ const styles = `
 `;
 
 export function printHtml(title: string, body: string) {
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${e(title)}</title><style>${styles}</style></head><body>${body}</body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${e(title)}</title><style>${styles}</style></head><body>${body}</body></html>`;
+  // Phone web views can't open a print dialog: hand the document to the share sheet instead
+  // (print, save to Files, email or message it to the customer).
+  if (isMobileApp) {
+    void saveFile(`${title.replace(/[^\w.-]+/g, "-")}.html`, html, "text/html").catch(() => undefined);
+    return;
+  }
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
   Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });

@@ -67,7 +67,72 @@ completed service jobs.
 - **Shared** between both: domain types (`src/types`), money/GST maths (`src/lib/calc.ts`) and role
   permissions (`src/lib/permissions.ts`).
 
-In production the API also serves the built web app, so there is one process and one port.
+In production the API also serves the built web app, so there is one process and one port. The
+mobile and desktop apps bundle the same web app and call the API cross-origin with a bearer token.
+
+## Mobile and desktop apps
+
+The same React app ships in three forms, all talking to your company server:
+
+| App | Built with | Where it lives |
+| --- | --- | --- |
+| Web | Vite | served by the API at your server address |
+| Android and iOS | [Capacitor](https://capacitorjs.com) | `android/`, `ios/`, `capacitor.config.ts` |
+| Windows, macOS and Linux | [Electron](https://www.electronjs.org) | `desktop/` |
+
+On first launch the apps ask for the **company server** address (e.g. `inventrack.yourcompany.sg`),
+then an email and password. They stay signed in for 30 days.
+
+- **Sign-in on devices.** Apps use a bearer token instead of the browser cookie. On desktop the token is
+  encrypted with the OS keychain (on Linux this needs a GNOME or KDE keyring, otherwise an owner-only
+  file is used); on phones it's kept in app-private storage.
+- **Revoking access.** Changing a password signs the user out on every device. So does an admin
+  resetting their password, changing their role or disabling them.
+- **HTTPS required.** Apps only connect to `https://` servers (plus `localhost` for testing).
+- **Allowed origins.** The server accepts cross-origin calls only from the app origins in `APP_ORIGINS`.
+- **Phones:**
+  - check-in uses native GPS, with the system permission prompt;
+  - printing opens the share sheet (print, save to Files, email or WhatsApp the document);
+  - the Android back button closes dialogs and navigates back;
+  - data refreshes when the app returns to the foreground.
+- **Desktop:** native print dialog and save dialogs, a single window per user, and external links open
+  in the browser. The page is sandboxed with no Node.js access and a strict content security policy.
+
+### Building the apps
+
+The **Build apps** GitHub Action (`.github/workflows/apps.yml`) builds everything. Run it from the Actions tab
+or push a tag such as `v1.0.0`. It produces an Android debug APK; Windows, macOS and Linux installers; and an
+iOS simulator build that checks the project compiles.
+
+Locally:
+
+```sh
+# Desktop (installers land in desktop/release/)
+npm --prefix desktop install
+npm run desktop:start          # run it
+npm run desktop:dist           # build installers for this OS
+
+# Mobile: needs Android Studio (Android) or Xcode on a Mac (iOS)
+npm run mobile:android         # build the web app, sync, open Android Studio
+npm run mobile:ios             # build the web app, sync, open Xcode
+```
+
+App icons and splash screens are generated from `assets/`. After changing them, run
+`npx @capacitor/assets generate`. The desktop icon is `desktop/build/icon.png`.
+
+### Publishing to the stores
+
+These steps need your own developer accounts and signing keys, so they aren't automated here:
+
+- **Google Play:** in Android Studio, *Build → Generate Signed Bundle*. Create an upload key once
+  and keep it safe. Upload the `.aab` in the Play Console; for staff-only use, publish to an internal
+  testing track or a managed Google Play private app.
+- **Apple App Store / TestFlight:** needs an Apple Developer account (and a Mac). In Xcode set your Team
+  under *Signing & Capabilities*, then *Product → Archive → Distribute*. For staff-only distribution, use
+  TestFlight or Apple Business Manager (Custom Apps).
+- **Desktop:** unsigned installers work but show "unknown publisher" warnings. To sign, add a Windows
+  code-signing certificate (`CSC_LINK`, `CSC_KEY_PASSWORD`) and, on macOS, an Apple Developer ID plus
+  notarisation credentials as secrets in the workflow.
 
 ## Local development
 
@@ -141,9 +206,13 @@ src/                     web app
   lib/calc.ts            money, GST, dates, statuses (shared, unit-tested)
   lib/permissions.ts     roles → permissions (shared)
   lib/api.ts             fetch wrapper
+  lib/platform.ts        web / desktop / mobile differences (storage, GPS, files, printing)
   lib/print.ts           printable quotations, orders, invoices, service & inventory reports
   store/useStore.ts      client cache + API actions
   components/, pages/    UI
+android/, ios/           Capacitor native projects (mobile apps)
+desktop/                 Electron app (main.cjs, preload.cjs, installer config)
+assets/                  source images for app icons and splash screens
 server/                  API
   prisma/schema.prisma   database schema;  prisma/migrations/  SQL migrations
   prisma/seed.ts         users + demo data

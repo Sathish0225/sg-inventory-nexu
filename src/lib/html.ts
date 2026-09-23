@@ -1,3 +1,5 @@
+import { saveFile } from "@/lib/platform";
+
 /** Escape user-entered text before interpolating it into generated HTML documents. */
 export const escapeHtml = (value: unknown): string =>
   String(value ?? "")
@@ -17,11 +19,6 @@ export const csvCell = (value: unknown): string => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-export const downloadFile = (filename: string, content: string, type = "text/csv;charset=utf-8") => {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-};
+/** Download (browser / desktop) or share (phone) a generated file. */
+export const downloadFile = (filename: string, content: string, type = "text/csv;charset=utf-8") =>
+  void saveFile(filename, content, type).catch(() => undefined);

@@ -61,29 +61,11 @@ import {
 import { csvCell, downloadFile } from "@/lib/html";
 import { notify } from "@/lib/result";
 import { useCan, useStore } from "@/store/useStore";
+import { getLocation, locationCaptureDefault } from "@/lib/platform";
 import type { AttendanceRecord, GeoPoint } from "@/types";
 
 const ALL = "__all";
 
-/**
- * Best-effort GPS fix; attendance still works without it (desktop, denied permission, timeout).
- * The browser's own timeout only starts once the permission prompt is answered, so an ignored
- * prompt would hang forever — cap the whole wait ourselves.
- */
-const getLocation = (): Promise<GeoPoint | null> =>
-  new Promise((resolve) => {
-    if (!("geolocation" in navigator)) return resolve(null);
-    const giveUp = setTimeout(() => resolve(null), 10_000);
-    const finish = (value: GeoPoint | null) => {
-      clearTimeout(giveUp);
-      resolve(value);
-    };
-    navigator.geolocation.getCurrentPosition(
-      (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => finish(null),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
-    );
-  });
 
 const mapsLink = (p: GeoPoint) =>
   `https://www.google.com/maps?q=${p.lat},${p.lng}`;
@@ -125,7 +107,7 @@ const AttendancePage = () => {
   const [technician, setTechnician] = useState(
     (selfOnly ? me?.name : presetJob?.technician) ?? "",
   );
-  const [captureLocation, setCaptureLocation] = useState(true);
+  const [captureLocation, setCaptureLocation] = useState(locationCaptureDefault);
   const [busy, setBusy] = useState(false);
   const [checkingOut, setCheckingOut] = useState<AttendanceRecord | null>(null);
   const [checkoutNotes, setCheckoutNotes] = useState("");

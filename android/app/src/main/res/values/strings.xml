@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">InvenTrack SG</string>
+    <string name="title_activity_main">InvenTrack SG</string>
+    <string name="package_name">sg.inventrack.app</string>
+    <string name="custom_url_scheme">sg.inventrack.app</string>
+</resources>
