@@ -1,168 +1,165 @@
-
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X } from "lucide-react";
-import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import NumberInput from "@/components/common/NumberInput";
+import { inventoryCategories } from "@/lib/constants";
+import type { NewInventoryItem } from "@/store/useStore";
+import type { InventoryCategory, InventoryItem } from "@/types";
+
+const blank: NewInventoryItem = {
+  sku: "",
+  name: "",
+  category: "Electronics",
+  brand: "",
+  model: "",
+  serialNumber: "",
+  location: "",
+  currentStock: 0,
+  minStock: 0,
+  unitCost: 0,
+  unitPrice: 0,
+  assignedTo: null,
+};
 
 interface InventoryFormProps {
-  item?: any;
-  onSave: (data: any) => void;
-  onCancel: () => void;
+  open: boolean;
+  item: InventoryItem | null;
+  onOpenChange: (open: boolean) => void;
+  onSave: (data: NewInventoryItem) => void;
 }
 
-const InventoryForm = ({ item, onSave, onCancel }: InventoryFormProps) => {
-  const [formData, setFormData] = useState({
-    name: item?.name || "",
-    category: item?.category || "",
-    brand: item?.brand || "",
-    model: item?.model || "",
-    serialNumber: item?.serialNumber || "",
-    location: item?.location || "",
-    currentStock: item?.currentStock || 0,
-    minStock: item?.minStock || 0,
-    unitCost: item?.unitCost || 0,
-    ...item
-  });
+const InventoryForm = ({ open, item, onOpenChange, onSave }: InventoryFormProps) => {
+  const [form, setForm] = useState<NewInventoryItem>(blank);
+  useEffect(() => {
+    if (open) setForm(item ? { ...blank, ...item } : blank);
+  }, [open, item]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-    toast.success(item ? "Item updated successfully" : "Item added successfully");
-  };
+  const set = (patch: Partial<NewInventoryItem>) => setForm((f) => ({ ...f, ...patch }));
+  const text = (key: "sku" | "name" | "brand" | "model" | "serialNumber" | "location") => ({
+    id: `inv-${key}`,
+    value: form[key],
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => set({ [key]: e.target.value }),
+  });
+  const margin = form.unitPrice > 0 ? ((form.unitPrice - form.unitCost) / form.unitPrice) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{item ? "Edit Item" : "Add New Item"}</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Item Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>{item ? `Edit ${item.name}` : "Add inventory item"}</DialogTitle>
+        </DialogHeader>
+        <form
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSave({ ...form, assignedTo: form.assignedTo?.trim() || null });
+          }}
+        >
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label htmlFor="inv-name">Item name</Label>
+              <Input {...text("name")} required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-sku">SKU</Label>
+              <Input {...text("sku")} required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-category">Category</Label>
+              <Select value={form.category} onValueChange={(v) => set({ category: v as InventoryCategory })}>
+                <SelectTrigger id="inv-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {inventoryCategories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-brand">Brand</Label>
+              <Input {...text("brand")} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-model">Model</Label>
+              <Input {...text("model")} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-serialNumber">Serial number</Label>
+              <Input {...text("serialNumber")} />
+            </div>
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label htmlFor="inv-location">Location</Label>
+              <Input {...text("location")} required />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-stock">{item ? "Stock (use Stock in/out)" : "Opening stock"}</Label>
+              <NumberInput
+                id="inv-stock"
+                min={0}
+                value={form.currentStock}
+                onValueChange={(currentStock) => set({ currentStock })}
+                disabled={Boolean(item)}
               />
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <select
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  <option value="Electronics">Electronics</option>
-                  <option value="Lighting">Lighting</option>
-                  <option value="Security">Security</option>
-                  <option value="Networking">Networking</option>
-                </select>
-              </div>
-              
-              <div>
-                <Label htmlFor="brand">Brand</Label>
-                <Input
-                  id="brand"
-                  value={formData.brand}
-                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                  required
-                />
-              </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-min">Reorder level</Label>
+              <NumberInput id="inv-min" min={0} value={form.minStock} onValueChange={(minStock) => set({ minStock })} />
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="model">Model</Label>
-                <Input
-                  id="model"
-                  value={formData.model}
-                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="serialNumber">Serial Number</Label>
-                <Input
-                  id="serialNumber"
-                  value={formData.serialNumber}
-                  onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                required
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-cost">Unit cost (S$)</Label>
+              <NumberInput
+                id="inv-cost"
+                min={0}
+                step="0.01"
+                value={form.unitCost}
+                onValueChange={(unitCost) => set({ unitCost })}
               />
             </div>
-            
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="currentStock">Current Stock</Label>
-                <Input
-                  id="currentStock"
-                  type="number"
-                  value={formData.currentStock}
-                  onChange={(e) => setFormData({ ...formData, currentStock: parseInt(e.target.value) })}
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="minStock">Min Stock</Label>
-                <Input
-                  id="minStock"
-                  type="number"
-                  value={formData.minStock}
-                  onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) })}
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="unitCost">Unit Cost (S$)</Label>
-                <Input
-                  id="unitCost"
-                  type="number"
-                  step="0.01"
-                  value={formData.unitCost}
-                  onChange={(e) => setFormData({ ...formData, unitCost: parseFloat(e.target.value) })}
-                  required
-                />
-              </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="inv-price">Selling price (S$)</Label>
+              <NumberInput
+                id="inv-price"
+                min={0}
+                step="0.01"
+                value={form.unitPrice}
+                onValueChange={(unitPrice) => set({ unitPrice })}
+              />
             </div>
-            
-            <div className="flex space-x-2 pt-4">
-              <Button type="submit" className="flex-1">
-                {item ? "Update" : "Add"} Item
-              </Button>
-              <Button type="button" variant="outline" onClick={onCancel}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Margin: <span className="tabular">{margin.toFixed(1)}%</span>. Selling price is the default on quotations and
+            invoices.
+          </p>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="inv-assigned">Assigned to (optional)</Label>
+            <Input
+              id="inv-assigned"
+              value={form.assignedTo ?? ""}
+              onChange={(e) => set({ assignedTo: e.target.value })}
+              placeholder="e.g. Tech Team A"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">{item ? "Save changes" : "Add item"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -1,244 +1,253 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipProps } from "recharts";
+import { AlertTriangle, ArrowRight, FileSpreadsheet, Package, Receipt, UserCheck, Wallet, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { 
-  Package, 
-  Wrench, 
-  AlertTriangle, 
-  TrendingUp,
-  DollarSign,
-  Calendar,
-  Users,
-  MapPin,
-  BarChart3
-} from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import StatCard from "@/components/common/StatCard";
+import StatusBadge from "@/components/common/StatusBadge";
+import {
+  addDays,
+  balanceDue,
+  documentTotals,
+  formatDate,
+  formatSGD,
+  formatSGDAxis,
+  formatSGDCompact,
+  invoiceDisplayStatus,
+  stockStatus,
+  todayISO,
+} from "@/lib/calc";
+import { selectCustomerName, useStore } from "@/store/useStore";
+
+const monthLabel = (ym: string) =>
+  new Date(`${ym}-01T00:00:00`).toLocaleDateString("en-SG", { month: "short", year: "2-digit" });
+
+/** Chart tooltip in app tokens so it follows light / dark mode. */
+const MoneyTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-md border bg-popover px-3 py-2 text-sm shadow-md">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="tabular font-medium">{formatSGD(Number(payload[0].value))}</p>
+    </div>
+  );
+};
+
+const axisProps = {
+  tickLine: false,
+  axisLine: false,
+  tick: { fill: "hsl(var(--muted-foreground))", fontSize: 12 },
+} as const;
 
 const Dashboard = () => {
-  // Mock data for charts
-  const inventoryTrend = [
-    { month: 'Jan', stockIn: 150, stockOut: 120 },
-    { month: 'Feb', stockIn: 180, stockOut: 140 },
-    { month: 'Mar', stockIn: 165, stockOut: 155 },
-    { month: 'Apr', stockIn: 200, stockOut: 180 },
-    { month: 'May', stockIn: 220, stockOut: 190 },
-    { month: 'Jun', stockIn: 195, stockOut: 175 }
-  ];
+  const inventory = useStore((s) => s.inventory);
+  const invoices = useStore((s) => s.invoices);
+  const quotations = useStore((s) => s.quotations);
+  const jobs = useStore((s) => s.jobs);
+  const attendance = useStore((s) => s.attendance);
+  const customers = useStore((s) => s.customers);
 
-  const serviceJobs = [
-    { type: 'Preventive', count: 45, color: '#10B981' },
-    { type: 'Corrective', count: 32, color: '#F59E0B' },
-    { type: 'Emergency', count: 12, color: '#EF4444' },
-    { type: 'Installation', count: 28, color: '#3B82F6' }
-  ];
+  const today = todayISO();
+  const issued = invoices.filter((i) => i.status === "Issued");
+  const outstanding = issued.reduce((s, i) => s + Math.max(0, balanceDue(i)), 0);
+  const overdue = issued.filter((i) => invoiceDisplayStatus(i, today) === "Overdue");
+  const lowStock = inventory.filter((i) => ["Low Stock", "Out of Stock"].includes(stockStatus(i)));
+  const openQuotes = quotations.filter((q) => (q.status === "Draft" || q.status === "Sent") && q.validUntil >= today);
+  const onSite = attendance.filter((a) => !a.checkOut);
 
-  const topItems = [
-    { name: 'Network Cable CAT6', used: 85, stock: 150 },
-    { name: 'LED Bulb 12W', used: 72, stock: 200 },
-    { name: 'Security Camera', used: 28, stock: 45 },
-    { name: 'Ethernet Switch', used: 15, stock: 30 }
+  // Revenue = issued invoices, excl. GST, by invoice month (last 6 months).
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - (5 - i));
+    return todayISO(d).slice(0, 7);
+  });
+  const revenue = months.map((ym) => ({
+    month: monthLabel(ym),
+    value: issued
+      .filter((i) => i.date.startsWith(ym))
+      .reduce((s, i) => s + documentTotals(i.lines, i.gstRate).subtotal, 0),
+  }));
+  const thisMonth = revenue[revenue.length - 1].value;
+
+  // Receivables ageing by days past due.
+  const buckets = [
+    { label: "Not yet due", min: -Infinity, max: 0 },
+    { label: "1–30 days", min: 1, max: 30 },
+    { label: "31–60 days", min: 31, max: 60 },
+    { label: "60+ days", min: 61, max: Infinity },
   ];
+  const daysPastDue = (due: string) => Math.round((Date.parse(today) - Date.parse(due)) / 86_400_000);
+  const ageing = buckets.map((b) => ({
+    bucket: b.label,
+    value: issued
+      .filter((i) => {
+        const d = daysPastDue(i.dueDate);
+        return d >= b.min && d <= b.max;
+      })
+      .reduce((s, i) => s + Math.max(0, balanceDue(i)), 0),
+  }));
+
+  const upcoming = jobs
+    .filter((j) => (j.status === "Scheduled" || j.status === "In Progress") && j.dateScheduled <= addDays(today, 7))
+    .sort((a, b) => (a.dateScheduled + a.timeScheduled).localeCompare(b.dateScheduled + b.timeScheduled))
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Inventory Value</CardTitle>
-            <DollarSign className="h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">S$245,680</div>
-            <p className="text-xs text-blue-100">
-              +12.5% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Service Jobs</CardTitle>
-            <Wrench className="h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">24</div>
-            <p className="text-xs text-green-100">
-              6 scheduled for today
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">7</div>
-            <p className="text-xs text-orange-100">
-              Requires immediate attention
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <TrendingUp className="h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">S$68,420</div>
-            <p className="text-xs text-purple-100">
-              +8.2% from last month
-            </p>
-          </CardContent>
-        </Card>
+      <div>
+        <h2 className="text-2xl font-semibold tracking-tight">Good {new Date().getHours() < 12 ? "morning" : "afternoon"}</h2>
+        <p className="text-sm text-muted-foreground">Here's where the business stands today.</p>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <StatCard label="Revenue this month" value={formatSGDCompact(thisMonth)} hint="Issued invoices, excl. GST" icon={Receipt} />
+        <StatCard
+          label="Receivables"
+          value={formatSGDCompact(outstanding)}
+          hint={overdue.length ? `${overdue.length} overdue` : "Nothing overdue"}
+          icon={Wallet}
+          tone={overdue.length ? "red" : "green"}
+        />
+        <StatCard
+          label="Open quotations"
+          value={formatSGDCompact(openQuotes.reduce((s, q) => s + documentTotals(q.lines, q.gstRate).total, 0))}
+          hint={`${openQuotes.length} awaiting decision`}
+          icon={FileSpreadsheet}
+          tone="violet"
+        />
+        <StatCard
+          label="Technicians on site"
+          value={onSite.length}
+          hint={(() => {
+            const n = jobs.filter((j) => j.status === "In Progress").length;
+            return `${n} job${n === 1 ? "" : "s"} in progress`;
+          })()}
+          icon={UserCheck}
+          tone="amber"
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Inventory Movement Trend</CardTitle>
-            <CardDescription>Stock In vs Stock Out (Last 6 Months)</CardDescription>
+            <CardTitle className="text-base">Revenue by month</CardTitle>
+            <CardDescription>Issued invoices, excl. GST · last 6 months</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={inventoryTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="stockIn" stroke="#10B981" strokeWidth={2} />
-                <Line type="monotone" dataKey="stockOut" stroke="#EF4444" strokeWidth={2} />
-              </LineChart>
+          <CardContent className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={revenue} margin={{ left: 0, right: 8, top: 8 }}>
+                <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" {...axisProps} />
+                <YAxis {...axisProps} width={60} tickFormatter={formatSGDAxis} />
+                <Tooltip content={<MoneyTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
+                <Bar dataKey="value" name="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Service Job Distribution</CardTitle>
-            <CardDescription>Jobs by Type (Current Month)</CardDescription>
+            <CardTitle className="text-base">Receivables ageing</CardTitle>
+            <CardDescription>Outstanding balance by days past due</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={serviceJobs}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="count"
-                  label={({ name, value }) => `${name}: ${value}`}
-                >
-                  {serviceJobs.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
+          <CardContent className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={ageing} layout="vertical" margin={{ left: 0, right: 24 }}>
+                <CartesianGrid horizontal={false} stroke="hsl(var(--border))" />
+                <XAxis type="number" {...axisProps} tickFormatter={formatSGDAxis} />
+                <YAxis type="category" dataKey="bucket" {...axisProps} width={96} />
+                <Tooltip content={<MoneyTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
+                <Bar dataKey="value" name="Outstanding" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} maxBarSize={28} />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity & Top Items */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest inventory and service updates</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Wrench className="h-4 w-4" /> Upcoming jobs
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/service">
+                All <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-4 p-3 bg-blue-50 rounded-lg">
-              <Package className="h-8 w-8 text-blue-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">Stock Received</p>
-                <p className="text-xs text-gray-500">Network cables - Qty: 50</p>
-              </div>
-              <Badge variant="secondary">2h ago</Badge>
-            </div>
-            
-            <div className="flex items-center space-x-4 p-3 bg-green-50 rounded-lg">
-              <Wrench className="h-8 w-8 text-green-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">Service Completed</p>
-                <p className="text-xs text-gray-500">HVAC Maintenance - Marina Bay</p>
-              </div>
-              <Badge variant="secondary">4h ago</Badge>
-            </div>
-            
-            <div className="flex items-center space-x-4 p-3 bg-orange-50 rounded-lg">
-              <AlertTriangle className="h-8 w-8 text-orange-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">Low Stock Alert</p>
-                <p className="text-xs text-gray-500">LED Bulbs - Only 15 remaining</p>
-              </div>
-              <Badge variant="destructive">1h ago</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Used Items</CardTitle>
-            <CardDescription>Most frequently used inventory items</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {topItems.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{item.name}</p>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <div className="w-20 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${(item.used / item.stock) * 100}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {item.used}/{item.stock}
-                    </span>
-                  </div>
+          <CardContent className="space-y-3">
+            {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nothing scheduled this week.</p>}
+            {upcoming.map((j) => (
+              <div key={j.id} className="flex items-start justify-between gap-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{j.customer}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {formatDate(j.dateScheduled)} {j.timeScheduled} · {j.technician}
+                  </p>
                 </div>
-                <Badge variant="outline">{Math.round((item.used / item.stock) * 100)}%</Badge>
+                <StatusBadge status={j.status} />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4" /> Overdue invoices
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/invoices">
+                All <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {overdue.length === 0 && <p className="text-sm text-muted-foreground">All caught up.</p>}
+            {overdue.slice(0, 5).map((i) => (
+              <div key={i.id} className="flex items-start justify-between gap-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{selectCustomerName(customers, i.customerId)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {i.number} · due {formatDate(i.dueDate)}
+                  </p>
+                </div>
+                <span className="tabular font-medium">{formatSGD(balanceDue(i))}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Package className="h-4 w-4" /> Needs reorder
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/inventory">
+                All <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {lowStock.length === 0 && <p className="text-sm text-muted-foreground">Stock levels are healthy.</p>}
+            {lowStock.slice(0, 5).map((i) => (
+              <div key={i.id} className="flex items-start justify-between gap-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{i.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {i.currentStock} left · reorder at {i.minStock}
+                  </p>
+                </div>
+                <StatusBadge status={stockStatus(i)} />
               </div>
             ))}
           </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Frequently used operations</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button className="h-20 flex-col space-y-2">
-              <Package className="h-6 w-6" />
-              <span>Add Stock</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex-col space-y-2">
-              <Wrench className="h-6 w-6" />
-              <span>New Service</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex-col space-y-2">
-              <BarChart3 className="h-6 w-6" />
-              <span>Generate Report</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex-col space-y-2">
-              <Users className="h-6 w-6" />
-              <span>Assign Job</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
