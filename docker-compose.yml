@@ -1,0 +1,41 @@
+# Production-style stack: PostgreSQL + InvenTrack (API and web app on one port).
+#   cp .env.docker.example .env   # then set passwords / secrets
+#   docker compose up -d --build
+#   docker compose exec app npm run db:seed   # first run only: creates the admin user
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: inventrack
+      POSTGRES_USER: inventrack
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventrack"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://inventrack:${POSTGRES_PASSWORD}@db:5432/inventrack?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      NODE_ENV: production
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@example.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      # Serve over HTTPS in production. Only for an internal http://<LAN IP> install, set COOKIE_SECURE=false.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # true only when a reverse proxy (nginx/Caddy) sits in front of the app
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    ports:
+      - "${APP_PORT:-3001}:3001"
+
+volumes:
+  pgdata:

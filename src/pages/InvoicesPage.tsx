@@ -108,7 +108,7 @@ const InvoicesPage = () => {
     setPayment({ date: today, amount: Math.max(0, balanceDue(inv)), method: "Bank Transfer", reference: "" });
   };
 
-  const save = (values: DocumentFormValues) => {
+  const save = async (values: DocumentFormValues) => {
     const input = {
       customerId: values.customerId,
       date: values.date,
@@ -119,20 +119,21 @@ const InvoicesPage = () => {
       gstRate: values.gstRate,
     };
     if (editing) {
-      if (notify(store().updateInvoice(editing.id, input), `${editing.number} updated`)) setEditing(null);
+      if (notify(await store().updateInvoice(editing.id, input), `${editing.number} updated`)) setEditing(null);
     } else {
-      const inv = store().createInvoice({ ...input, status: "Draft" });
-      notify({ ok: true, value: inv }, `Draft invoice ${inv.number} created`);
-      setCreating(false);
-      openInvoice(inv);
+      const r = await store().createInvoice(input);
+      if (notify(r, r.ok ? `Draft invoice ${r.value.number} created` : undefined)) {
+        setCreating(false);
+        openInvoice(r.value);
+      }
     }
   };
 
-  const runConfirm = () => {
+  const runConfirm = async () => {
     if (!confirm) return;
     const { invoice, action } = confirm;
-    if (action === "void") notify(store().voidInvoice(invoice.id), `${invoice.number} voided`);
-    if (action === "delete" && notify(store().deleteInvoice(invoice.id), `${invoice.number} deleted`)) setViewingId(null);
+    if (action === "void") notify(await store().voidInvoice(invoice.id), `${invoice.number} voided`);
+    if (action === "delete" && notify(await store().deleteInvoice(invoice.id), `${invoice.number} deleted`)) setViewingId(null);
     setConfirm(null);
   };
 
@@ -253,7 +254,7 @@ const InvoicesPage = () => {
                     <Button size="sm" variant="outline" onClick={() => setEditing(viewing)}>
                       Edit
                     </Button>
-                    <Button size="sm" onClick={() => notify(store().issueInvoice(viewing.id), `${viewing.number} issued`)}>
+                    <Button size="sm" onClick={async () => notify(await store().issueInvoice(viewing.id), `${viewing.number} issued`)}>
                       <FileCheck2 className="mr-1 h-4 w-4" /> Issue invoice
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setConfirm({ invoice: viewing, action: "delete" })}>
@@ -322,7 +323,7 @@ const InvoicesPage = () => {
                           variant="ghost"
                           size="icon"
                           aria-label="Remove payment"
-                          onClick={() => store().deletePayment(viewing.id, p.id)}
+                          onClick={async () => notify(await store().deletePayment(viewing.id, p.id), "Payment removed")}
                         >
                           <Trash2 className="h-4 w-4 text-muted-foreground" />
                         </Button>
@@ -335,9 +336,9 @@ const InvoicesPage = () => {
               {viewing.status === "Issued" && balanceDue(viewing) > 0 && (
                 <form
                   className="mt-4 grid gap-3 rounded-md border bg-muted/30 p-3"
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    if (notify(store().recordPayment(viewing.id, payment), "Payment recorded")) {
+                    if (notify(await store().recordPayment(viewing.id, payment), "Payment recorded")) {
                       const updated = useStore.getState().invoices.find((i) => i.id === viewing.id)!;
                       setPayment({ ...payment, amount: Math.max(0, balanceDue(updated)), reference: "" });
                     }

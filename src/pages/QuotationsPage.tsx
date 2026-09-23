@@ -88,7 +88,7 @@ const QuotationsPage = () => {
   const accepted = all.filter((x) => x.status === "Accepted").length;
   const decided = all.filter((x) => ["Accepted", "Rejected", "Expired"].includes(x.status)).length;
 
-  const save = (values: DocumentFormValues) => {
+  const save = async (values: DocumentFormValues) => {
     const input = {
       customerId: values.customerId,
       date: values.date,
@@ -100,11 +100,10 @@ const QuotationsPage = () => {
       gstRate: values.gstRate,
     };
     if (editing) {
-      if (notify(store().updateQuotation(editing.id, input), `${editing.number} updated`)) setEditing(null);
+      if (notify(await store().updateQuotation(editing.id, input), `${editing.number} updated`)) setEditing(null);
     } else {
-      const q = store().createQuotation({ ...input, status: "Draft" });
-      notify({ ok: true, value: q }, `${q.number} created`);
-      setCreating(false);
+      const r = await store().createQuotation({ ...input, status: "Draft" });
+      if (notify(r, r.ok ? `${r.value.number} created` : undefined)) setCreating(false);
     }
   };
 
@@ -210,37 +209,37 @@ const QuotationsPage = () => {
                                 <DropdownMenuSeparator />
                                 {q.status === "Draft" && (
                                   <DropdownMenuItem
-                                    onClick={() => notify(store().setQuotationStatus(q.id, "Sent"), `${q.number} marked as sent`)}
+                                    onClick={async () => notify(await store().setQuotationStatus(q.id, "Sent"), `${q.number} marked as sent`)}
                                   >
                                     <Send className="mr-2 h-4 w-4" /> Mark as sent
                                   </DropdownMenuItem>
                                 )}
                                 {st !== "Accepted" && (
                                   <DropdownMenuItem
-                                    onClick={() => notify(store().setQuotationStatus(q.id, "Accepted"), `${q.number} accepted`)}
+                                    onClick={async () => notify(await store().setQuotationStatus(q.id, "Accepted"), `${q.number} accepted`)}
                                   >
                                     <CheckCircle2 className="mr-2 h-4 w-4" /> Mark as accepted
                                   </DropdownMenuItem>
                                 )}
                                 {st !== "Rejected" && (
                                   <DropdownMenuItem
-                                    onClick={() => notify(store().setQuotationStatus(q.id, "Rejected"), `${q.number} rejected`)}
+                                    onClick={async () => notify(await store().setQuotationStatus(q.id, "Rejected"), `${q.number} rejected`)}
                                   >
                                     <XCircle className="mr-2 h-4 w-4" /> Mark as rejected
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  onClick={() => {
-                                    const r = store().convertQuotationToSalesOrder(q.id);
+                                  onClick={async () => {
+                                    const r = await store().convertQuotationToSalesOrder(q.id);
                                     if (notify(r, r.ok ? `Sales order ${r.value.number} created` : undefined)) navigate("/sales");
                                   }}
                                 >
                                   <ShoppingCart className="mr-2 h-4 w-4" /> Convert to sales order
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={() => {
-                                    const r = store().convertQuotationToInvoice(q.id);
+                                  onClick={async () => {
+                                    const r = await store().convertQuotationToInvoice(q.id);
                                     if (notify(r, r.ok ? `Draft invoice ${r.value.number} created` : undefined)) navigate("/invoices");
                                   }}
                                 >
@@ -286,8 +285,8 @@ const QuotationsPage = () => {
         title={`Delete ${deleting?.number}?`}
         description="The quotation will be permanently removed."
         confirmLabel="Delete"
-        onConfirm={() => {
-          if (deleting) notify(store().deleteQuotation(deleting.id), `${deleting.number} deleted`);
+        onConfirm={async () => {
+          if (deleting) notify(await store().deleteQuotation(deleting.id), `${deleting.number} deleted`);
           setDeleting(null);
         }}
       />

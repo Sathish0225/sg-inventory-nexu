@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { notify } from "@/lib/result";
 import { useStore } from "@/store/useStore";
 import CustomerDialog from "./CustomerDialog";
 
@@ -40,9 +41,12 @@ const CustomerSelect = ({ id, value, onChange, disabled }: CustomerSelectProps) 
       <CustomerDialog
         open={adding}
         onOpenChange={setAdding}
-        onSave={(input) => {
-          onChange(addCustomer(input).id);
-          setAdding(false);
+        onSave={async (input) => {
+          const r = await addCustomer(input);
+          if (notify(r, `${input.name} added`)) {
+            onChange(r.value.id);
+            setAdding(false);
+          }
         }}
       />
     </div>

@@ -32,7 +32,7 @@ import { inventoryCategories } from "@/lib/constants";
 import { formatDate, formatDateTime, formatSGD, formatSGDCompact, stockStatus } from "@/lib/calc";
 import { printInventoryReport } from "@/lib/print";
 import { notify } from "@/lib/result";
-import { useStore, type NewInventoryItem } from "@/store/useStore";
+import { useCan, useStore, type NewInventoryItem } from "@/store/useStore";
 import type { InventoryItem } from "@/types";
 
 const ALL = "__all";
@@ -42,6 +42,7 @@ const InventoryPage = () => {
   const movements = useStore((s) => s.stockMovements);
   const settings = useStore((s) => s.settings);
   const store = useStore.getState;
+  const canWrite = useCan("inventory:write");
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(ALL);
@@ -64,18 +65,14 @@ const InventoryPage = () => {
   const totalValue = inventory.reduce((s, i) => s + i.currentStock * i.unitCost, 0);
   const lowCount = inventory.filter((i) => ["Low Stock", "Out of Stock"].includes(stockStatus(i))).length;
 
-  const save = (data: NewInventoryItem) => {
-    if (editing) {
-      // Stock levels only change through recorded movements.
-      const { currentStock: _ignored, ...patch } = data;
-      store().updateInventoryItem(editing.id, patch);
-      notify({ ok: true, value: undefined }, `${data.name} updated`);
-    } else {
-      store().addInventoryItem(data);
-      notify({ ok: true, value: undefined }, `${data.name} added`);
+  const save = async (data: NewInventoryItem) => {
+    // Stock levels only change through recorded movements.
+    const { currentStock: _ignored, ...patch } = data;
+    const r = editing ? await store().updateInventoryItem(editing.id, patch) : await store().addInventoryItem(data);
+    if (notify(r, `${data.name} ${editing ? "updated" : "added"}`)) {
+      setFormOpen(false);
+      setEditing(null);
     }
-    setFormOpen(false);
-    setEditing(null);
   };
 
   const openMove = (item: InventoryItem, direction: "in" | "out") => {
@@ -83,11 +80,11 @@ const InventoryPage = () => {
     setMove({ quantity: 1, reference: "", note: "" });
   };
 
-  const submitMove = (e: React.FormEvent) => {
+  const submitMove = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!moving) return;
     const delta = moving.direction === "in" ? move.quantity : -move.quantity;
-    const r = store().adjustStock(moving.item.id, delta, move.reference || (moving.direction === "in" ? "Stock in" : "Stock out"), move.note);
+    const r = await store().adjustStock(moving.item.id, delta, move.reference || (moving.direction === "in" ? "Stock in" : "Stock out"), move.note);
     if (notify(r, `${moving.item.name}: ${delta > 0 ? "+" : ""}${delta}`)) setMoving(null);
   };
 
@@ -103,14 +100,16 @@ const InventoryPage = () => {
             <Button variant="outline" onClick={() => printInventoryReport(rows, settings)}>
               <Printer className="mr-2 h-4 w-4" /> Report
             </Button>
-            <Button
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add item
-            </Button>
+            {canWrite && (
+              <Button
+                onClick={() => {
+                  setEditing(null);
+                  setFormOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add item
+              </Button>
+            )}
           </>
         }
       />
@@ -192,7 +191,7 @@ const InventoryPage = () => {
                         <p className="mt-1 text-xs text-muted-foreground">{formatDate(item.lastUpdated)}</p>
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end">
+                        <div className={canWrite ? "flex justify-end" : "hidden"}>
                           <Button variant="ghost" size="icon" aria-label="Stock in" title="Stock in" onClick={() => openMove(item, "in")}>
                             <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
                           </Button>
@@ -328,11 +327,8 @@ const InventoryPage = () => {
         title={`Delete ${deleting?.name}?`}
         description="Existing documents keep their line descriptions, but the item will no longer be selectable."
         confirmLabel="Delete"
-        onConfirm={() => {
-          if (deleting) {
-            store().deleteInventoryItem(deleting.id);
-            notify({ ok: true, value: undefined }, `${deleting.name} deleted`);
-          }
+        onConfirm={async () => {
+          if (deleting) notify(await store().deleteInventoryItem(deleting.id), `${deleting.name} deleted`);
           setDeleting(null);
         }}
       />

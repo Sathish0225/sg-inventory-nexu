@@ -1,0 +1,291 @@
+// InvenTrack SG database schema.
+// Money is Decimal(14,2) and quantities Decimal(14,3) (hours on job invoices can be fractional).
+// Status fields are strings validated by the API (see src/schemas.ts) so labels match the UI.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  /// ADMIN | MANAGER | ACCOUNTS | TECHNICIAN
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendance     AttendanceRecord[]
+  stockMovements StockMovement[]
+  payments       Payment[]
+}
+
+/// Single row (id = 1) holding company details and document defaults.
+model Settings {
+  id                    Int     @id @default(1)
+  name                  String
+  uen                   String  @default("")
+  gstRegNo              String  @default("")
+  address               String  @default("")
+  phone                 String  @default("")
+  email                 String  @default("")
+  bankDetails           String  @default("")
+  gstRate               Decimal @default(9) @db.Decimal(5, 2)
+  paymentTermsDays      Int     @default(30)
+  quotationValidityDays Int     @default(30)
+  defaultLabourRate     Decimal @default(0) @db.Decimal(14, 2)
+  /// { quotation, salesOrder, invoice, serviceJob }
+  prefixes              Json
+  quotationTerms        String  @default("")
+}
+
+/// Per-type, per-year sequence for document numbers (QT-2026-0001 …).
+model DocCounter {
+  kind String
+  year Int
+  seq  Int
+
+  @@id([kind, year])
+}
+
+model Customer {
+  id             String   @id @default(uuid())
+  name           String
+  contactPerson  String   @default("")
+  email          String   @default("")
+  phone          String   @default("")
+  billingAddress String   @default("")
+  uen            String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  jobs        ServiceJob[]
+  quotations  Quotation[]
+  salesOrders SalesOrder[]
+  invoices    Invoice[]
+}
+
+model InventoryItem {
+  id           String   @id @default(uuid())
+  sku          String   @unique
+  name         String
+  category     String
+  brand        String   @default("")
+  model        String   @default("")
+  serialNumber String   @default("")
+  location     String   @default("")
+  currentStock Decimal  @default(0) @db.Decimal(14, 3)
+  minStock     Decimal  @default(0) @db.Decimal(14, 3)
+  unitCost     Decimal  @default(0) @db.Decimal(14, 2)
+  unitPrice    Decimal  @default(0) @db.Decimal(14, 2)
+  assignedTo   String?
+  lastUpdated  DateTime @default(now()) @db.Date
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  movements      StockMovement[]
+  jobParts       JobPart[]
+  quotationLines QuotationLine[]
+  orderLines     SalesOrderLine[]
+  invoiceLines   InvoiceLine[]
+}
+
+model StockMovement {
+  id        String         @id @default(uuid())
+  itemId    String?
+  item      InventoryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  /// Item name at the time, kept after the item is deleted.
+  itemName  String
+  type      String
+  quantity  Decimal        @db.Decimal(14, 3)
+  reference String         @default("")
+  note      String         @default("")
+  userId    String?
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  at        DateTime       @default(now())
+
+  @@index([at])
+}
+
+model ServiceJob {
+  id                String   @id @default(uuid())
+  jobNumber         String   @unique
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  site              String
+  serviceType       String
+  technician        String
+  dateScheduled     DateTime @db.Date
+  timeScheduled     String
+  status            String
+  priority          String
+  description       String
+  labourRate        Decimal  @default(0) @db.Decimal(14, 2)
+  customerSignature Boolean  @default(false)
+  photos            Int      @default(0)
+  notes             String   @default("")
+  partsDeducted     Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  parts      JobPart[]
+  attendance AttendanceRecord[]
+  invoices   Invoice[]
+}
+
+model JobPart {
+  id       String         @id @default(uuid())
+  jobId    String
+  job      ServiceJob     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  itemId   String?
+  item     InventoryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  name     String
+  quantity Decimal        @db.Decimal(14, 3)
+  cost     Decimal        @db.Decimal(14, 2)
+  position Int
+}
+
+model AttendanceRecord {
+  id          String     @id @default(uuid())
+  jobId       String
+  job         ServiceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  technician  String
+  /// Who recorded the check-in.
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  checkIn     DateTime
+  checkOut    DateTime?
+  checkInLat  Float?
+  checkInLng  Float?
+  checkOutLat Float?
+  checkOutLng Float?
+  notes       String     @default("")
+
+  @@index([checkIn])
+}
+
+model Quotation {
+  id         String   @id @default(uuid())
+  number     String   @unique
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  date       DateTime @db.Date
+  validUntil DateTime @db.Date
+  status     String
+  gstRate    Decimal  @db.Decimal(5, 2)
+  reference  String   @default("")
+  notes      String   @default("")
+  terms      String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  lines      QuotationLine[]
+  salesOrder SalesOrder?
+  invoices   Invoice[]
+}
+
+model QuotationLine {
+  id          String         @id @default(uuid())
+  quotationId String
+  quotation   Quotation      @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        InventoryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description String
+  quantity    Decimal        @db.Decimal(14, 3)
+  unitPrice   Decimal        @db.Decimal(14, 2)
+  discountPct Decimal        @default(0) @db.Decimal(5, 2)
+  position    Int
+}
+
+model SalesOrder {
+  id           String     @id @default(uuid())
+  number       String     @unique
+  customerId   String
+  customer     Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  quotationId  String?    @unique
+  quotation    Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  date         DateTime   @db.Date
+  deliveryDate DateTime   @db.Date
+  status       String
+  gstRate      Decimal    @db.Decimal(5, 2)
+  reference    String     @default("")
+  notes        String     @default("")
+  fulfilledAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  lines    SalesOrderLine[]
+  invoices Invoice[]
+}
+
+model SalesOrderLine {
+  id           String         @id @default(uuid())
+  salesOrderId String
+  salesOrder   SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  itemId       String?
+  item         InventoryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description  String
+  quantity     Decimal        @db.Decimal(14, 3)
+  unitPrice    Decimal        @db.Decimal(14, 2)
+  discountPct  Decimal        @default(0) @db.Decimal(5, 2)
+  position     Int
+}
+
+/// An invoice may come from one source document. Voided invoices keep their source link for
+/// audit; a partial unique index (see migration) allows only one non-void invoice per source.
+model Invoice {
+  id           String      @id @default(uuid())
+  number       String      @unique
+  customerId   String
+  customer     Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  date         DateTime    @db.Date
+  dueDate      DateTime    @db.Date
+  status       String
+  gstRate      Decimal     @db.Decimal(5, 2)
+  reference    String      @default("")
+  notes        String      @default("")
+  quotationId  String?
+  quotation    Quotation?  @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  salesOrderId String?
+  salesOrder   SalesOrder? @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  serviceJobId String?
+  serviceJob   ServiceJob? @relation(fields: [serviceJobId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  lines    InvoiceLine[]
+  payments Payment[]
+}
+
+model InvoiceLine {
+  id          String         @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        InventoryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description String
+  quantity    Decimal        @db.Decimal(14, 3)
+  unitPrice   Decimal        @db.Decimal(14, 2)
+  discountPct Decimal        @default(0) @db.Decimal(5, 2)
+  position    Int
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  amount      Decimal  @db.Decimal(14, 2)
+  method      String
+  reference   String   @default("")
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}

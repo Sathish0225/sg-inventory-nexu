@@ -1,97 +1,52 @@
-import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, RotateCcw, Upload } from "lucide-react";
+import { Database, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { downloadFile } from "@/lib/html";
 import { todayISO } from "@/lib/calc";
+import { downloadFile } from "@/lib/html";
 import { useStore } from "@/store/useStore";
 
-const DATA_KEYS = [
+const EXPORT_KEYS = [
   "settings",
   "customers",
   "inventory",
-  "stockMovements",
   "jobs",
   "attendance",
   "quotations",
   "salesOrders",
   "invoices",
-  "counters",
 ] as const;
 
-/** Data lives in this browser (localStorage); backups are the way to move or protect it. */
+/** Data now lives in the PostgreSQL database; this offers a readable export of what you can see. */
 const DataManagementCard = () => {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [confirmReset, setConfirmReset] = useState(false);
-
-  const backup = () => {
+  const exportJson = () => {
     const state = useStore.getState();
-    const data = Object.fromEntries(DATA_KEYS.map((k) => [k, state[k]]));
+    const data = Object.fromEntries(EXPORT_KEYS.map((k) => [k, state[k]]));
     downloadFile(
-      `inventrack-backup-${todayISO()}.json`,
-      JSON.stringify({ app: "inventrack-sg", version: 1, exportedAt: new Date().toISOString(), data }, null, 2),
+      `inventrack-export-${todayISO()}.json`,
+      JSON.stringify({ app: "inventrack-sg", exportedAt: new Date().toISOString(), data }, null, 2),
       "application/json",
     );
-    toast.success("Backup downloaded");
-  };
-
-  const restore = async (file: File) => {
-    try {
-      const parsed = JSON.parse(await file.text());
-      if (parsed?.app !== "inventrack-sg" || typeof parsed.data !== "object") throw new Error("Not an InvenTrack backup");
-      const missing = DATA_KEYS.filter((k) => !(k in parsed.data));
-      if (missing.length) throw new Error(`Backup is missing: ${missing.join(", ")}`);
-      const current = useStore.getState().settings;
-      useStore.setState({ ...parsed.data, settings: { ...current, ...parsed.data.settings } });
-      toast.success("Backup restored");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not read backup file");
-    }
+    toast.success("Export downloaded");
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Backup &amp; restore</CardTitle>
-        <CardDescription>
-          All records are stored in this browser. Download a backup regularly and before clearing browser data.
-        </CardDescription>
+        <CardTitle>Data</CardTitle>
+        <CardDescription>All records are stored in the company PostgreSQL database and shared by every user.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
-        <Button onClick={backup}>
-          <Download className="mr-2 h-4 w-4" /> Download backup
+      <CardContent className="space-y-4">
+        <div className="flex items-start gap-3 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+          <Database className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Backups are taken on the server with <code className="rounded bg-muted px-1">pg_dump</code> (see the README).
+            Schedule them daily and keep copies off the server.
+          </p>
+        </div>
+        <Button variant="outline" onClick={exportJson}>
+          <Download className="mr-2 h-4 w-4" /> Export data (JSON)
         </Button>
-        <Button variant="outline" onClick={() => fileRef.current?.click()}>
-          <Upload className="mr-2 h-4 w-4" /> Restore from file
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void restore(file);
-            e.target.value = "";
-          }}
-        />
-        <Button variant="ghost" className="text-destructive" onClick={() => setConfirmReset(true)}>
-          <RotateCcw className="mr-2 h-4 w-4" /> Reset to demo data
-        </Button>
-        <ConfirmDialog
-          open={confirmReset}
-          onOpenChange={setConfirmReset}
-          title="Reset all data?"
-          description="Every customer, job, quotation, order and invoice in this browser will be replaced with demo data."
-          confirmLabel="Reset"
-          onConfirm={() => {
-            useStore.getState().resetDemoData();
-            setConfirmReset(false);
-            toast.success("Demo data restored");
-          }}
-        />
       </CardContent>
     </Card>
   );
