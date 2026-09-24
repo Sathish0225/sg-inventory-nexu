@@ -109,6 +109,8 @@ interface State extends Collections {
   status: "checking" | "signed-out" | "loading" | "ready" | "unreachable";
   /** Why the app couldn't reach its server (apps only). */
   connectionError: string | null;
+  /** Apps: show the (normally hidden) server field on the login page. */
+  serverChangeRequested: boolean;
   user: SessionUser | null;
   settings: CompanySettings;
 }
@@ -119,6 +121,8 @@ interface Actions {
   /** `server` is required in the desktop / mobile apps (the company server address). */
   login: (email: string, password: string, server?: string) => Promise<Result>;
   logout: () => Promise<void>;
+  /** Apps: sign out and open the login page with the server field showing. */
+  switchServer: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<Result>;
   /** Re-fetch collections (all readable ones when no keys are given). */
   refresh: (...keys: Key[]) => Promise<void>;
@@ -204,6 +208,7 @@ export const useStore = create<AppState>()((set, get) => {
   return {
     status: "checking",
     connectionError: null,
+    serverChangeRequested: false,
     user: null,
     settings: emptySettings,
     ...emptyCollections(),
@@ -249,7 +254,7 @@ export const useStore = create<AppState>()((set, get) => {
           await Promise.all([appStorage.set(SERVER_KEY, baseUrl), appStorage.set(TOKEN_KEY, token)]);
           set({ user, status: "loading" });
           await get().refresh();
-          set({ status: "ready" });
+          set({ status: "ready", serverChangeRequested: false });
           return { ok: true, value: undefined };
         }
         const { user } = await api.post<{ user: SessionUser }>("/auth/login", { email, password });
@@ -265,6 +270,11 @@ export const useStore = create<AppState>()((set, get) => {
     logout: async () => {
       await api.post("/auth/logout").catch(() => undefined);
       signedOut();
+    },
+
+    switchServer: async () => {
+      await get().logout();
+      set({ serverChangeRequested: true });
     },
 
     changePassword: async (currentPassword, newPassword) => {
