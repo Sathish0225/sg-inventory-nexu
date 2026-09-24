@@ -82,6 +82,11 @@ call the API with a bearer token.
 All three talk to the same server. On first launch the apps ask for the **company server** address
 (e.g. `inventrack.yourcompany.sg`), then an email and password, and stay signed in for 30 days.
 
+After the first sign-in the server field is hidden. To change the server, on the sign-in screen
+**hold the logo for about a second** or **tap it 5 times** (desktop: also **Ctrl/Cmd+Shift+S**). The
+field also appears automatically when the saved server can't be reached, and from the
+"Use another server" button.
+
 ### Phone app (`mobile/`)
 
 It has native screens designed for use in the field:

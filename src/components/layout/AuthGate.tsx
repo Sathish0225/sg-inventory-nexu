@@ -43,7 +43,7 @@ const AuthGate = ({ children }: { children: ReactNode }) => {
 /** Apps only: the saved server couldn't be reached (no signal, VPN off, server down). */
 const Unreachable = ({ onRetry }: { onRetry: () => void }) => {
   const error = useStore((s) => s.connectionError);
-  const logout = useStore((s) => s.logout);
+  const switchServer = useStore((s) => s.switchServer);
   return (
     <div className="pt-safe flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
       <div className="rounded-full bg-muted p-4">
@@ -55,7 +55,7 @@ const Unreachable = ({ onRetry }: { onRetry: () => void }) => {
       </div>
       <div className="flex gap-2">
         <Button onClick={onRetry}>Try again</Button>
-        <Button variant="outline" onClick={() => void logout()}>
+        <Button variant="outline" onClick={() => void switchServer()}>
           Use another server
         </Button>
       </div>

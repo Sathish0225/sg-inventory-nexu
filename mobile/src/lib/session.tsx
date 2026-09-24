@@ -18,6 +18,10 @@ interface Session {
   user: SessionUser | null;
   server: string;
   error: string | null;
+  /** Show the (normally hidden) server field on the login screen. */
+  serverChangeRequested: boolean;
+  /** Sign out and open the login screen with the server field showing. */
+  switchServer: () => Promise<void>;
   signIn: (server: string, email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   retry: () => Promise<void>;
@@ -35,6 +39,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [server, setServer] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [serverChangeRequested, setServerChangeRequested] = useState(false);
 
   const clearSession = useCallback(async () => {
     configureApi({ token: null });
@@ -94,6 +99,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           await Promise.all([secureStorage.set(SERVER_KEY, baseUrl), secureStorage.set(TOKEN_KEY, res.token)]);
           setServer(baseUrl);
           setUser(res.user);
+          setServerChangeRequested(false);
           setStatus("ready");
           return null;
         } catch (err) {
@@ -103,6 +109,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         await api.post("/auth/logout").catch(() => undefined);
         await clearSession();
+      },
+      serverChangeRequested,
+      switchServer: async () => {
+        await api.post("/auth/logout").catch(() => undefined);
+        await clearSession();
+        setServerChangeRequested(true);
       },
       changePassword: async (currentPassword, newPassword) => {
         try {
@@ -118,7 +130,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
       },
     }),
-    [status, user, server, error, restore, clearSession],
+    [status, user, server, error, serverChangeRequested, restore, clearSession],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

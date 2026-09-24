@@ -28,7 +28,7 @@ function useAppFocusRefetch() {
 onlineManager.setOnline(true);
 
 function Unreachable() {
-  const { error, server, retry, signOut } = useSession();
+  const { error, server, retry, switchServer } = useSession();
   const c = useColors();
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.lg, padding: space.xl, backgroundColor: c.background }}>
@@ -40,7 +40,7 @@ function Unreachable() {
         {error}
       </Text>
       <Button title="Try again" icon="refresh" onPress={() => void retry()} style={{ alignSelf: "stretch" }} />
-      <Button title="Use another server" tone="secondary" onPress={() => void signOut()} style={{ alignSelf: "stretch" }} />
+      <Button title="Use another server" tone="secondary" onPress={() => void switchServer()} style={{ alignSelf: "stretch" }} />
     </View>
   );
 }
